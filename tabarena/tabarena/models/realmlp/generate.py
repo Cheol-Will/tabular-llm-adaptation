@@ -82,5 +82,5 @@ if __name__ == "__main__":
     )
     experiments = experiments_default + experiments_random
     YamlExperimentSerializer.to_yaml(
-        experiments=experiments, path="configs_realmlp.yaml"
+        experiments=experiments, path="configs_ftt.yaml"
     )

@@ -158,7 +158,7 @@ class KNNPreprocessor(BaseEstimator, TransformerMixin):
                 outputs.append(pd.DataFrame(Xt, columns=[col]).reset_index(drop=True))
 
         if not outputs:
-            return pd.DataFrame(index=X.index)
+            return pd.DataFrame(index=X.index)x
 
         out = pd.concat(outputs, axis=1)
         out.index = X.index
