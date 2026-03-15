@@ -1,26 +1,3 @@
-
-<div align="center">
-
-<div id="user-content-toc">
-  <ul align="center" style="list-style: none;">
-    <summary>
-      <img src="https://avatars.githubusercontent.com/u/210855230" width="175" alt="TabArena Logo"/>
-    </summary>
-  </ul>
-</div>
-
-## A Living Benchmark for Machine Learning on Tabular Data 💫
-
----
-
-| 🚀 [Leaderboard](https://tabarena.ai/) | 📂 [Example Scripts]( https://tabarena.ai/code-examples) | 📊 [Dataset Curation](https://tabarena.ai/data-tabular-ml-iid-study) | 📄 [Paper](https://tabarena.ai/paper-tabular-ml-iid-study) |
-|:--------------------------------------:|:----------------------------------------------------------------------------------------:|:----------------------------------------------------------------------------------------:|:--------------------------------------------------------------------------------:|
-
----
-</div>
-
-TabArena is a living benchmarking system that makes benchmarking tabular machine learning models a reliable experience. TabArena implements best practices to ensure methods are represented at their peak potential, including cross-validated ensembles, strong hyperparameter search spaces contributed by the method authors, early stopping, model refitting, parallel bagging, memory usage estimation, and more.
-
 TabArena currently consists of:
 
 - 51 manually curated tabular datasets representing real-world tabular data tasks.
@@ -29,6 +6,15 @@ TabArena currently consists of:
 - 25,000,000 trained models across the benchmark, with all validation and test predictions cached to enable tuning and post-hoc ensembling analysis.
 - A [live TabArena leaderboard](https://huggingface.co/spaces/TabArena/leaderboard) showcasing the results.
 
+### Run Experiment
+```
+python a.py
+```
+
+### Experiment Results
+```
+python examples/plots/run_generate_result_ours.py
+```
 
 ## 🕹️ Quickstart Use Cases
 
@@ -43,53 +29,6 @@ We share more details on various use cases of TabArena in our [examples](example
 ### Datasets 
 Please refer to our [dataset curation repository](https://github.com/TabArena/tabarena_dataset_curation) to learn more about or contributed data! 
 
-### More Documentation
-TabArena code is currently being polished. Detailed Documentation for TabArena will be available soon.
-
-# 🪄 Installation
-
-To install TabArena, ensure you are using Python 3.9-3.12. Then, run the following:
-
-### Install UV
-
-Ensure [UV is installed](https://docs.astral.sh/uv/getting-started/installation/) for the most stable install.
-
-```
-pip install uv  # if pip is available
-```
-
-### Install AutoGluon
-
-In future AutoGluon installation will occur automatically, but due to changes yet to be released, we need to install AutoGluon from source.
-
-```
-git clone https://github.com/autogluon/autogluon.git
-./autogluon/full_install.sh
-```
-
-### Clone the repository
-
-```
-git clone https://github.com/autogluon/tabarena.git
-cd tabarena  # ensure the working directory is the project root, otherwise the below commands won't work
-```
-
-### Evaluation (Leaderboard / Metrics)
-
-If you don't intend to fit models, this is the simplest installation.
-
-#### UV Install (recommended)
-
-```
-uv pip install --prerelease=allow -e ./tabarena
-```
-
-#### PIP Install (not recommended)
-
-```
-pip install -e ./bencheval
-pip install -e ./tabarena
-```
 
 ### Benchmark (Fitting Models)
 
@@ -102,50 +41,13 @@ uv pip install --prerelease=allow -e ./tabarena[benchmark]
 # GIT_LFS_SKIP_SMUDGE=1 uv pip install --prerelease=allow -e ./tabarena/[benchmark]
 ```
 
-### Developer Install
-
-Creating a custom virtual environment (if needed or use `uv sync`):
-```
-pip install uv
-uv venv --seed --python 3.11 ~/.venvs/tabarena
-source ~/.venvs/tabarena/bin/activate
-```
-
-With this installation, you will have the latest version of AutoGluon in editable form.
-```
-git clone https://github.com/autogluon/autogluon.git
-./autogluon/full_install.sh
-
-git clone https://github.com/autogluon/tabarena.git
-uv pip install --prerelease=allow -e ./tabarena/tabarena[benchmark]
-```
-
-In PyCharm, make sure to set the directory of `tabarena/` and each `src/` subdirectory of `autogluon/` as 
-"Sources Root" for the IDE to find the imports.
-
-### Example Install + Run Steps
+### Example Steps
 
 Creating a project:
 ```
-pip install uv
-uv init -p 3.11
-uv sync
-git clone https://github.com/autogluon/autogluon.git
-./autogluon/full_install.sh
-git clone https://github.com/autogluon/tabarena.git
-cd tabarena
-uv pip install --prerelease=allow -e ./tabarena[benchmark]
-cd examples/benchmarking
-python run_quickstart_tabarena.py 
+python examples/benchmarking/run_quickstart_tabarena.py 
 ```
 
-### Install from GitHub / TabArena as a dependency 
-
-You can install TabArena from GitHub or as a dependency by using:
-
-```
- "tabarena @ git+https://github.com/autogluon/tabarena.git#subdirectory=tabarena"
-```
 
 # Downloading and using TabArena Artifacts
 
@@ -163,32 +65,3 @@ Examples of artifacts include:
 * **Raw data**: [examples/meta/inspect_raw_data.py](examples/meta/inspect_raw_data.py)
 * **Processed data**: [examples/meta/inspect_processed_data.py](examples/meta/inspect_processed_data.py)
 * **Results**: [examples/plots/run_generate_main_leaderboard.py](examples/plots/run_generate_main_leaderboard.py)
-
-
-# 📄 Publication for TabArena
-
-If you use TabArena in a scientific publication, we would appreciate a reference to the following paper:
-
-**TabArena: A Living Benchmark for Machine Learning on Tabular Data**, 
-Nick Erickson, Lennart Purucker, Andrej Tschalzev, David Holzmüller, Prateek Mutalik Desai, David Salinas, Frank Hutter, Preprint., 2025
-
-Link to publication: [arXiv](https://arxiv.org/abs/2506.16791)
-
-Link to NeurIPS'2025: [Conference Poster and Video](https://neurips.cc/virtual/2025/loc/san-diego/poster/121499)
-
-Bibtex entry:
-```bibtex
-@inproceedings{erickson2025tabarena,
-  title     = {TabArena: A Living Benchmark for Machine Learning on Tabular Data},
-  author    = {Erickson, Nick and Purucker, Lennart and Tschalzev, Andrej and Holzm{\"u}ller, David and Desai, Prateek Mutalik and Salinas, David and Hutter, Frank},
-  booktitle = {Proceedings of the 39th Conference on Neural Information Processing Systems (NeurIPS)},
-  year      = {2025},
-  url       = {https://arxiv.org/abs/2506.16791}
-}
-```
-
-
---- 
-## Relation to TabRepo 
-
-TabArena was built upon and now replaces [TabRepo](https://arxiv.org/pdf/2311.02971). To see details about TabRepo, the portfolio simulation repository, refer to [tabrepo.md](tabrepo.md).

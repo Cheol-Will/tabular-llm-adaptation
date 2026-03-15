@@ -18,6 +18,8 @@ from tabarena.benchmark.models.ag import (
     TabMModel,
     TabSTARModel,
     XRFMModel,
+    ###
+    FTTransformerModel,
 )
 
 tabarena_model_registry: ModelRegistry = copy.deepcopy(ag_model_registry)
@@ -36,6 +38,8 @@ _models_to_add = [
     PerpetualBoosterModel,
     TabICLv2Model,
     TabSTARModel,
+    ###
+    FTTransformerModel,
 ]
 
 for _model_cls in _models_to_add:

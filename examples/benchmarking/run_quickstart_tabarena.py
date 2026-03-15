@@ -20,7 +20,8 @@ if __name__ == '__main__':
     task_metadata = tabarena_context.task_metadata
 
     # Sample for a quick demo
-    datasets = ["anneal", "credit-g", "diabetes"]  # datasets = list(task_metadata["name"])
+    datasets = ["anneal", "credit-g", "diabetes"]  
+    # datasets = list(task_metadata["name"]) # for all data
     folds = [0]
 
     # import your model classes

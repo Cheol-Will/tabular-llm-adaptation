@@ -15,6 +15,10 @@ from tabarena.benchmark.models.ag.tabpfnv2_5.tabpfnv2_5_model import RealTabPFNv
 from tabarena.benchmark.models.ag.tabstar.tabstar_model import TabSTARModel
 from tabarena.benchmark.models.ag.xrfm.xrfm_model import XRFMModel
 
+from tabarena.benchmark.models.ag.fttransformer.ftt_model import FTTransformerModel
+
+
+
 __all__ = [
     "ExplainableBoostingMachineModel",
     "KNNNewModel",
@@ -29,4 +33,6 @@ __all__ = [
     "TabMModel",
     "TabSTARModel",
     "XRFMModel",
+    ### 
+    "FTTransformerModel",
 ]
