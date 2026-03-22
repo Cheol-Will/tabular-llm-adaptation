@@ -9,6 +9,73 @@ from tabarena.nips2025_utils.tabarena_context import TabArenaContext
 from tabarena.paper.tabarena_evaluator import TabArenaEvaluator
 
 
+def get_subset_results(
+    output_dir: str | Path,
+    new_results: pd.DataFrame | None = None,
+    *,
+    only_valid_tasks: bool | str | list[str] = False,
+    subset: str | list[str] | None = None,
+    folds: list[int] | None = None,
+    tabarena_context: TabArenaContext | None = None,
+    tabarena_context_kwargs: dict | None = None,
+    **kwargs,
+) -> pd.DataFrame:
+    output_dir = Path(output_dir)
+    if tabarena_context is None:
+        if tabarena_context_kwargs is None:
+            tabarena_context_kwargs = {}
+        tabarena_context = TabArenaContext(**tabarena_context_kwargs)
+    task_metadata = tabarena_context.task_metadata
+
+    # TODO: only methods that exist in runs
+    #  Pair with (method, artifact_name)
+    method_rename_map = dict()
+    method_metadatas = tabarena_context.method_metadata_collection.method_metadata_lst
+    for m in method_metadatas:
+        if m.method_type == "config":
+            display_name = m.display_name
+            if display_name is not None:
+                if m.config_type in method_rename_map:
+                    print(
+                        f"WARNING: Multiple display_name values detected for the same config_type={m.config_type!r}"
+                        f"\n\tdisplay_name 1: {method_rename_map[m.config_type]!r}"
+                        f"\n\tdisplay_name 2: {display_name!r}"
+                    )
+                method_rename_map[m.config_type] = display_name
+
+    paper_results = tabarena_context.load_results_paper(
+        download_results="auto",
+    )
+
+    if new_results is not None:
+        new_results = new_results.copy(deep=True)
+        if "method_subtype" not in new_results:
+            new_results["method_subtype"] = np.nan
+
+    if new_results is not None:
+        df_results = pd.concat([paper_results, new_results], ignore_index=True)
+    else:
+        df_results = paper_results
+
+    kwargs = kwargs.copy()
+    if isinstance(only_valid_tasks, (str, list)):
+        kwargs["only_valid_tasks"] = only_valid_tasks
+    elif only_valid_tasks and new_results is not None:
+        df_results = filter_to_valid_tasks(
+            df_to_filter=df_results,
+            df_filter=new_results,
+        )
+
+    if subset is not None or folds is not None:
+        if subset is None:
+            subset = []
+        if isinstance(subset, str):
+            subset = [subset]
+        df_results = subset_tasks(df_results=df_results, subset=subset, folds=folds)
+
+    return df_results
+
+
 def compare_on_tabarena(
     output_dir: str | Path,
     new_results: pd.DataFrame | None = None,

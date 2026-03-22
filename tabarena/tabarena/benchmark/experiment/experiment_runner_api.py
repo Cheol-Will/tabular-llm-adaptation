@@ -189,6 +189,7 @@ def run_experiments_new(
     raise_on_failure: bool = True,
     debug_mode: bool = False,
     failure_on_non_finite_metric_error: bool = False,
+    exclude_task_ids: list[int] = [],
 ) -> list[dict]:
     """Run model experiments for a set of tasks.
 
@@ -366,6 +367,11 @@ def run_experiments_new(
     experiment_missing_count, experiment_cache_exists_count = 0, 0
     experiment_count_total = n_splits * len(model_experiments)
     for dataset_index, task_id_or_object in enumerate(tasks):
+        print("\n\n","="*100)
+        if task_id_or_object in exclude_task_ids: 
+            print(f"Skipping {dataset_index + 1}/{len(tasks)} (TID: {task_id_or_object}) due to large number of features")
+            continue
+        
         task, tabarena_task_name, eval_metric_name = None, None, None
         print(f"Starting Dataset {dataset_index + 1}/{len(tasks)}...")
 
