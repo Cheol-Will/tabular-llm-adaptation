@@ -8,7 +8,14 @@ TabArena currently consists of:
 
 ### Run Experiment
 ```
-python a.py
+python experiment/main.py \
+    --model "TFMLLM" \
+    --exp_name "results" \
+    --num_random_configs 200
+```
+or
+```
+bash scripts/run_experiment.sh
 ```
 
 ### Experiment Results
