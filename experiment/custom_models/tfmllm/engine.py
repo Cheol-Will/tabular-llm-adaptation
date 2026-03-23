@@ -18,7 +18,6 @@ from ..preprocessor import CustomOrdinalEncoder, CustomQuantileTransformer
 from autogluon.core.metrics import compute_metric
 from .model import TFMLLM
 from peft import LoraConfig, get_peft_model
-# from .model import FTTransformer
 
 if TYPE_CHECKING:
     from autogluon.core.metrics import Scorer

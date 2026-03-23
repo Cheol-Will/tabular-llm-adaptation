@@ -32,8 +32,6 @@ def filter_data(args):
         ]
 
     return task_ids
-    
-
 
 
 def main(args):

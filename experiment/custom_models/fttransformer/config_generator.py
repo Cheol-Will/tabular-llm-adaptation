@@ -20,7 +20,7 @@ def get_experiment_configs(num_random_configs: int = 10):
         "residual_dropout": Real(0.0, 0.2),
         "lr": Real(1e-5, 1e-3, log=True),
         "weight_decay": Real(1e-6, 1e-3, log=True),
-        "batch_size": Categorical(256, 512, 1024),
+        "batch_size": Categorical(64, 128, 256, 512),
     }
 
     gen = ConfigGenerator(
