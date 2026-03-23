@@ -1,4 +1,10 @@
-# parameters
+# user defined 
+bencheval
+data
+examples
+tabflow
+tabflow_slurm
+tst
 AutogluonModels
 
 # Byte-compiled / optimized / DLL files
