@@ -14,7 +14,8 @@ def get_parser():
     parser.add_argument("--num_random_configs", type=int, default=10) # 200 in paper
     parser.add_argument("--num_data", type=int, default=None) 
     parser.add_argument("--subset", type=str, default='all', help="") 
-    
+    parser.add_argument("--task_ids", type=int, nargs="+", default=None)
+
     return parser
 
 def load_tid():
@@ -46,6 +47,11 @@ def filter_data(args):
             # 363696, # num_featrues=42 OOM on 2 GPUS
             363675,
             363707,
+        ]
+    if args.subset == 'small-large-features':
+        task_ids = [
+            363614, # num_features=39 OOM on 2 GPUs
+            363696, # num_featrues=42 OOM on 2 GPUS
         ]
 
     return task_ids

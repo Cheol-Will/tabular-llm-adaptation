@@ -13,4 +13,5 @@ python experiment/main.py \
     --model $model \
     --exp_name $exp_name \
     --model_cls_name $model_cls_name \
-    --subset "small"
+    --subset "small-large-features"
+    # --subset "small"
