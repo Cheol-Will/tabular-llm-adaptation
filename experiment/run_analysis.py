@@ -17,6 +17,9 @@ import torch.nn as nn
 from autogluon.tabular import TabularPredictor
 from tabarena.utils.pickle_utils import fetch_all_pickles
 
+from utils import get_parser
+
+
 # TabArena custom model
 import sys
 sys.path.insert(0, str(Path(__file__).parent))
@@ -26,10 +29,6 @@ from custom_models.tfmllm.wrapper import TFMLLMModel
 EXCLUDE_KEYS = {"ag_args_ensemble", "ag_args_fit", "gpu_ids"}
 EXCLUDE_KEYS_REFIT = {"ag_args_ensemble", "ag_args_fit", "gpu_ids"}
 
-
-# ──────────────────────────────────────────────────────────────
-# Data utilities
-# ──────────────────────────────────────────────────────────────
 
 def load_pickle(path: Path) -> dict:
     with open(path, "rb") as f:
@@ -316,10 +315,6 @@ class TabularAnalysis(TabularPredictor):
         )
 
 
-# ──────────────────────────────────────────────────────────────
-# main
-# ──────────────────────────────────────────────────────────────
-
 def main(args):
     base_dir = Path(__file__).parent / "results" / args.exp_name / args.model
     eval_dir = Path(__file__).parent / "evals"  / args.exp_name / "embedding"
@@ -355,7 +350,6 @@ def main(args):
             and pd.notna(row[k])
         }
 
-        # int로 변환해야 하는 HP 목록
         INT_HPS = {"batch_size", "lora_rank", "lora_alpha", "num_epochs", "token_dim"}
 
         meta_cols = {"dataset", "tid", "metric", "metric_error"}
@@ -364,7 +358,6 @@ def main(args):
             if k in meta_cols or k in EXCLUDE_KEYS_REFIT or pd.isna(row[k]):
                 continue
             v = row[k]
-            # int로 변환
             if k in INT_HPS:
                 v = int(v)
             best_hp[k] = v
@@ -386,7 +379,7 @@ def main(args):
             path=str(predictor_path),
         ).fit(
             train_data=train_data,
-            hyperparameters={TFMLLMModel: best_hp},  # 클래스 직접 전달
+            hyperparameters={TFMLLMModel: best_hp}, 
             num_bag_folds=0,
             num_stack_levels=0,
             verbosity=2,
@@ -403,10 +396,7 @@ def main(args):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--model",    type=str, required=True)
-    parser.add_argument("--exp_name", type=str, required=True)
-    parser.add_argument("--dataset",  type=str, default=None)
-    parser.add_argument("--tid",      type=int, default=None)
+    parser = get_parser()
+    parser.add_argument("--tid", type=int, default=None, help="Task ID in openml")
     args = parser.parse_args()
     main(args)

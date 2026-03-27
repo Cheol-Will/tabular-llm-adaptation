@@ -3,6 +3,7 @@ from typing import Callable, Optional
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch import autocast
 
 from transformers import AutoModelForCausalLM
 from ..layer import (
@@ -27,7 +28,6 @@ class TFMLLM(nn.Module):
         num_embedding_type: str = 'plr',
         token_dim: int = 16,
         num_classes: int = 1,
-        # token_dim: int = 32, # feature tokenizer dimension
         use_cls: bool = False, # TODO: use cls or mean pooling
     ):  
         super().__init__()
@@ -75,21 +75,22 @@ class TFMLLM(nn.Module):
   
     def forward(self, x_num: torch.Tensor, x_cat: torch.Tensor):
 
-        x = self.feature_tokenizer(x_num, x_cat) # (B, N, d_token)
-        x = self.mlp_adapter(x) # (B, N, d_llm)
-        x = x + self.pos_embedding 
+        with autocast(device_type="cuda", dtype=torch.bfloat16):
+            x = self.feature_tokenizer(x_num, x_cat) # (B, N, d_token)
+            x = self.mlp_adapter(x) # (B, N, d_llm)
+            x = x + self.pos_embedding
 
-        for block in self.backbone:
-            x = block(
-                x,
-                attention_mask=None,
-                position_ids=None,
-                past_key_values=None,
-                use_cache=False,
-                cache_position=None,
-                position_embeddings=(None, None),
-            )
-        x = x.mean(dim=1) # (B, N)
-        x = self.output_proj(x)
+            for block in self.backbone:
+                x = block(
+                    x,
+                    attention_mask=None,
+                    position_ids=None,
+                    past_key_values=None,
+                    use_cache=False,
+                    cache_position=None,
+                    position_embeddings=(None, None),
+                )
+            x = x.mean(dim=1) # (B, N)
+            x = self.output_proj(x)
 
         return x

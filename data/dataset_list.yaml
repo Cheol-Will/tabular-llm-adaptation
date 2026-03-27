@@ -1,0 +1,67 @@
+tid: 
+  [
+    363621, 363629, 363614, 363698, 363626, 363685, 363625, 363696, 363675, 363707,
+    363671, 363612, 363615, 363711, 363682, 363684, 363674, 363700, 363702, 363620,
+    363677, 363704, 363623, 363697, 363694, 363708, 363706, 363689, 363624, 363619,
+    363676, 363712, 363632, 363691, 363681, 363686, 363679, 363678, 363705, 363627,
+    363613, 363618, 363672, 363693, 363683, 363631, 363630, 363616, 363699, 363628,
+    363673
+  ]
+
+
+small:
+  - blood-transfusion-service-center
+  - diabetes
+  - anneal
+  - QSAR_fish_toxicity
+  - credit-g
+  - maternal_health_risk
+  - concrete_compressive_strength
+  - qsar-biodeg
+  - healthcare_insurance_expenses
+  - website_phishing
+  - Fitness_Club
+  - airfoil_self_noise
+  - Another-Dataset-on-used-Fiat-500
+  - MIC
+  - Is-this-a-good-customer
+  - Marketing_Campaign
+  - hazelnut-spread-contaminant-detection
+  - seismic-bumps
+  - splice
+  - Bioresponse
+  - hiva_agnostic
+  - students_dropout_and_academic_success
+  - churn
+  - QSAR-TID-11
+  - polish_companies_bankruptcy
+  - wine_quality
+  - taiwanese_bankruptcy_prediction
+  - NATICUSdroid
+  - coil2000_insurance_policies
+  - Bank_Customer_Churn
+
+middle:
+  - heloc
+  - jm1
+  - E-CommereShippingData
+  - online_shoppers_intention
+  - in_vehicle_coupon_recommendation
+  - miami_housing
+  - HR_Analytics_Job_Change_of_Data_Scientists
+  - houses
+  - superconductivity
+  - credit_card_clients_default
+  - Amazon_employee_access
+  - bank-marketing
+  - Food_Delivery_Time
+  - physiochemical_protein
+  - kddcup09_appetency
+
+large:
+  - diamonds
+  - Diabetes130US
+  - APSFailure
+  - SDSS17
+  - customer_satisfaction_in_airline
+  - GiveMeSomeCredit

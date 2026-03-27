@@ -1,12 +1,16 @@
-model="FTTransformer"
+# model="FTTransformer"
 # model="TFMLLM"
-exp_name="260323"
-# num_random_configs=10 # for fast experiment
-num_random_configs=200 # for fast experiment
-# num_data=10
+
+model="LLMBaseline"
+# model_cls_name="LLMBaseline"
+# model_cls_name="LLMBaselineBidirectional"
+# model_cls_name="LLMBaselinePooling"
+model_cls_name="LLMBaselineBidirectionalPooling"
+exp_name="260326"
+num_random_configs=10 # for fast experiment
 
 python experiment/main.py \
     --model $model \
     --exp_name $exp_name \
-    --num_random_configs $num_random_configs \
-    --subset "tail"
+    --model_cls_name $model_cls_name \
+    --subset "small"

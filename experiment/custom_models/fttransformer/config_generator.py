@@ -2,7 +2,7 @@ from autogluon.common.space import Int, Real, Categorical
 from tabarena.utils.config_utils import ConfigGenerator
 from .wrapper import FTTransformerModel
 
-def get_experiment_configs(num_random_configs: int = 10):
+def get_experiment_configs(num_random_configs: int, exp_name: str):
     manual_configs = [
         {
             "num_gpus": 1,
@@ -27,6 +27,7 @@ def get_experiment_configs(num_random_configs: int = 10):
         model_cls=FTTransformerModel,
         manual_configs=manual_configs,
         search_space=search_space,
+        name=f"FTTransformer_{exp_name}",
     )
     
     return gen.generate_all_bag_experiments(

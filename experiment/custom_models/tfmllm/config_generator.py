@@ -2,14 +2,13 @@ from autogluon.common.space import Int, Real, Categorical
 from tabarena.utils.config_utils import ConfigGenerator
 from .wrapper import TFMLLMModel
 
-
-def get_experiment_configs(num_random_configs: int = 10):
+def get_experiment_configs(num_random_configs: int, exp_name: str):
     """Generate the hyperparameter configurations to run for TFM-LLM."""
     manual_configs = [
         {
             # "num_gpus": 1,
             # "num_gpus": 3,
-            # "gpu_ids": [0, 1, 2],
+            "task_id": None,
             "gpu_ids": [0, 1],
             "num_epochs": 200,
             "lr": 1e-3,
@@ -38,6 +37,7 @@ def get_experiment_configs(num_random_configs: int = 10):
         model_cls=TFMLLMModel,
         manual_configs=manual_configs,
         search_space=search_space,
+        name=f"TFMLLM_{exp_name}",
     )
     return gen.generate_all_bag_experiments(
         num_random_configs=num_random_configs,

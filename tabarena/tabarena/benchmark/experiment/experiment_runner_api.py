@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Literal
 
+import os
 import numpy as np
 
 from tabarena.benchmark.experiment import Experiment, ExperimentBatchRunner
@@ -372,8 +373,14 @@ def run_experiments_new(
             print(f"Skipping {dataset_index + 1}/{len(tasks)} (TID: {task_id_or_object}) due to large number of features")
             continue
         
+        # for wandb, add task id as environment variable
+        os.environ["CURRENT_TASK_ID"] = str(
+            task_id_or_object if isinstance(task_id_or_object, int) 
+            else task_id_or_object.task_id
+        )
+
         task, tabarena_task_name, eval_metric_name = None, None, None
-        print(f"Starting Dataset {dataset_index + 1}/{len(tasks)}...")
+        print(f"Starting Dataset: {task_id_or_object} ({dataset_index + 1}/{len(tasks)})...")
 
         for split_index, (fold, repeat) in enumerate(
             fold_repeat_pairs_per_task[dataset_index], start=1
@@ -450,7 +457,7 @@ def run_experiments_new(
                             )
 
                         eval_metric_name = task.eval_metric
-                        print(f"Using eval metric: {eval_metric_name}")
+                        # print(f"Using eval metric: {eval_metric_name}")
 
                     try:
                         out = model_experiment.run(

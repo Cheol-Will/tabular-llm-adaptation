@@ -1,12 +1,10 @@
 # user defined 
 bencheval
-data
-examples
 tabflow
 tabflow_slurm
 tst
 AutogluonModels
-
+wandb
 */*/*/embedding/
 
 # Byte-compiled / optimized / DLL files
