@@ -3,6 +3,7 @@ set -e
 
 echo "=== Installing UV ==="
 pip install uv
+export PATH="$HOME/.local/bin:$PATH" 
 
 echo "=== Creating virtual environment ==="
 uv venv --seed --python 3.11 ~/.venvs/tabarena
