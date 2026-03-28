@@ -227,7 +227,7 @@ def _ddp_worker(
             batch_y = batch["label"].to(device)
 
             optimizer.zero_grad()
-            output = model(input_ids, attention_mask)
+            output = model(input_ids, attention_mask).float()
             loss = loss_fn(output, batch_y)
             loss.backward()
             optimizer.step()
@@ -365,8 +365,9 @@ class LLMBaselineImplementation:
 
         task_id = self.config.get("task_id") or int(os.getenv("CURRENT_TASK_ID", "0"))
         start_time = time.time()
+        num_gpus = torch.cuda.device_count()
+        gpu_ids = list(range(num_gpus))
 
-        gpu_ids = self.config.get("gpu_ids", [0])
         self.device_ = torch.device(f"cuda:{gpu_ids[0]}")
 
         random_state = self.config.get("random_state", None)
