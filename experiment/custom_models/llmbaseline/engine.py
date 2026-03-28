@@ -194,7 +194,8 @@ def _ddp_worker(
                 "num_epochs": config.get("num_epochs", 200),
                 "patience": config.get("patience", 16),
             },
-            reinit=True,
+            reinit="finish_previous",
+            settings=wandb.Settings(silent=True),  
         )
 
     # Epoch-0 baseline (rank 0 only; result broadcast to sync all ranks)
@@ -226,7 +227,7 @@ def _ddp_worker(
             batch_y = batch["label"].to(device)
 
             optimizer.zero_grad()
-            output = model(input_ids, attention_mask)
+            output = model(input_ids, attention_mask).float()
             loss = loss_fn(output, batch_y)
             loss.backward()
             optimizer.step()
@@ -364,8 +365,9 @@ class LLMBaselineImplementation:
 
         task_id = self.config.get("task_id") or int(os.getenv("CURRENT_TASK_ID", "0"))
         start_time = time.time()
+        num_gpus = torch.cuda.device_count()
+        gpu_ids = list(range(num_gpus))
 
-        gpu_ids = self.config.get("gpu_ids", [0, 1])
         self.device_ = torch.device(f"cuda:{gpu_ids[0]}")
 
         random_state = self.config.get("random_state", None)
