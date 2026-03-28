@@ -10,7 +10,7 @@ from utils import (
 from tabarena.benchmark.experiment import run_experiments_new
 
 def main(args):
-    output_dir = str(Path(__file__).parent / "results" / args.exp_name / args.model)
+    output_dir = str(Path(__file__).parent / "results" / args.exp_name / args.model_cls_name)
     task_ids = filter_data(args)
     model_experiments = get_model_experiments(
         model=args.model, 
