@@ -55,13 +55,13 @@ class LLMBaseline(nn.Module):
                     output_hidden_states=True,
                 )
                 last_hidden = outputs.hidden_states[-1][:, -1, :]  # (B, llm_dim)
-                return self.regression_head(last_hidden).squeeze(-1)  # (B,)
+                return self.regression_head(last_hidden.float()).squeeze(-1).float()  # (B,)
             else:
                 outputs = self.backbone(
                     input_ids=input_ids,
                     attention_mask=attention_mask,
                 )
-                last_logits = outputs.logits[:, -1, :]  # (B, vocab_size)
+                last_logits = outputs.logits[:, -1, :].float()  # (B, vocab_size)
                 return last_logits[:, self.label_token_ids]      # (B, n_classes)
             
 
@@ -115,13 +115,13 @@ class LLMBaselineBidirectional(nn.Module):
                     output_hidden_states=True,
                 )
                 last_hidden = outputs.hidden_states[-1][:, -1, :] # (B, llm_dim)
-                return self.regression_head(last_hidden).squeeze(-1)
+                return self.regression_head(last_hidden.float()).squeeze(-1).float()
             else:
                 outputs = self.backbone(
                     input_ids=input_ids,
                     attention_mask=bidir_attention_mask,
                 )
-                last_logits = outputs.logits[:, -1, :] # (B, vocab_size)
+                last_logits = outputs.logits[:, -1, :].float() # (B, vocab_size)
                 return last_logits[:, self.label_token_ids] # (B, n_classes)
 
 
@@ -164,7 +164,7 @@ class LLMBaselinePooling(nn.Module):
                 output_hidden_states=True,
             )
             last_hidden = outputs.hidden_states[-1] # (B, S, D)
-            pooling_mask = attention_mask.unsqueeze(-1).bfloat16() # (B, S, 1)
+            pooling_mask = attention_mask.unsqueeze(-1).float() # (B, S, 1)
             masked_hidden = last_hidden * pooling_mask
             pooled_hidden = masked_hidden.sum(dim=1) / pooling_mask.sum(dim=1) # (B, D)
             logits = self.output_proj(pooled_hidden) # (B, num_classes)
@@ -214,7 +214,7 @@ class LLMBaselineBidirectionalPooling(nn.Module):
                 output_hidden_states=True,
             )
             last_hidden = outputs.hidden_states[-1] # (B, S, D)
-            pooling_mask = attention_mask.unsqueeze(-1).bfloat16() # (B, S, 1)
+            pooling_mask = attention_mask.unsqueeze(-1).float() # (B, S, 1)
             masked_hidden = last_hidden * pooling_mask
             pooled_hidden = masked_hidden.sum(dim=1) / pooling_mask.sum(dim=1) # (B, D)
             logits = self.output_proj(pooled_hidden) # (B, num_classes)
