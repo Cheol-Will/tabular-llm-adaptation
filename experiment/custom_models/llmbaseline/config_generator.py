@@ -29,7 +29,7 @@ def get_experiment_configs(
 
     manual_configs = [
         {
-            "gpu_ids": [0, 1],
+            "gpu_ids": [0],
             "model_name": "Qwen/Qwen2.5-0.5B",
             "num_epochs": 100,
             "lora_lr": 1e-4,

@@ -155,7 +155,7 @@ class LLMBaselineModel(AbstractModel):
     def _set_default_params(self):
         defaults = {
             # "num_gpus": 1,
-            "gpu_ids": [0, 1],
+            "gpu_ids": [0],
             "model_name": "Qwen/Qwen2.5-0.5B",
             "num_epochs": 100,
             "lora_lr": 1e-4,
