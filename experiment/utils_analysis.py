@@ -79,29 +79,37 @@ METRIC_ORDER = ["roc_auc", "rmse", "log_loss"]
 
 CATEGORY_ORDER = ["ML", "DL", "Foundation"]
 
-BOTTOM_METHODS = ["FTTransformer", "TFMLLM", "LLMBaseline"]
+BOTTOM_METHODS = [
+    "FTTransformer", 
+    "LLMBaseline",
+    "LLMBaselineBidirectional",
+    "LLMBaselineBidirectionalPooling",
+    "TFMLLM", 
+]
 
 METHOD_CATEGORY: dict[str, str] = {
-    "CAT":             "ML",
-    "EBM":             "ML",
-    "GBM":             "ML",
-    "KNN":             "ML",
-    "LR":              "ML",
-    "RF":              "ML",
-    "XGB":             "ML",
-    "XT":              "ML",
-    "FASTAI":          "DL",
-    "MNCA_GPU":        "DL",
-    "NN_TORCH":        "DL",
-    "REALMLP_GPU":     "DL",
-    "TABM_GPU":        "DL",
-    "XRFM_GPU":        "DL",
-    "REALTABPFN-V2.5": "Foundation",
-    "TABDPT_GPU":      "Foundation",
-    "TABPFNV2_GPU":    "Foundation",
-    "FTTransformer":   "DL",
-    "TFMLLM":          "Foundation",
-    "LLMBaseline":     "Foundation",
+    "CAT":                                  "ML",
+    "EBM":                                  "ML",
+    "GBM":                                  "ML",
+    "KNN":                                  "ML",
+    "LR":                                   "ML",
+    "RF":                                   "ML",
+    "XGB":                                  "ML",
+    "XT":                                   "ML",
+    "FASTAI":                               "DL",
+    "MNCA_GPU":                             "DL",
+    "NN_TORCH":                             "DL",
+    "REALMLP_GPU":                          "DL",
+    "TABM_GPU":                             "DL",
+    "XRFM_GPU":                             "DL",
+    "REALTABPFN-V2.5":                      "Foundation",
+    "TABDPT_GPU":                           "Foundation",
+    "TABPFNV2_GPU":                         "Foundation",
+    "FTTransformer":                        "DL",
+    "TFMLLM":                               "Foundation",
+    "LLMBaseline":                          "Foundation",
+    "LLMBaselineBidirectional":             "Foundation",
+    "LLMBaselineBidirectionalPooling":      "Foundation",
 }
 
 # Alias
@@ -237,7 +245,8 @@ def pivot_main_table(
     pivot.index.name = None
 
     # drop columns that model does not have result on
-    model_rows = pivot[pivot.index.str.startswith(model)]
+    model_rows = pivot[pivot.index == model]    
+
     if not model_rows.empty:
         valid_cols = model_rows.columns[model_rows.notna().all(axis=0)]
         pivot = pivot[valid_cols]

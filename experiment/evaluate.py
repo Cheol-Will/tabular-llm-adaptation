@@ -10,81 +10,83 @@ from tabarena.nips2025_utils.end_to_end import EndToEnd
 from tabarena.nips2025_utils.compare import get_subset_results
 from utils_analysis import pivot_main_table, save_latex
 
-def main(args):
-    eval_dir = Path(__file__).parent / "evals" / args.exp_name
-    os.makedirs(eval_dir, exist_ok=True)
 
-    # methods = [
-    #     "FTTransformer", 
-    #     "LLMBaseline",
-    #     "LLMBaselineBidirectionalPooling",
-    #     "TFMLLM"
-    # ]
-
-    # TODO: refactoring
-
-    new_methos = [
-        "LLMBaselineBidirectionalPooling",
-    ]
-    # when new experiment results are added, run below code to make cache.
-    base_dir = Path(__file__).parent / "results" / "260326"
-    path_raw_lst = [base_dir / method for method in new_methos]
+def generate_cache(args):
+    path = Path(__file__).parent / "results" / args.exp_name / args.model  
     end_to_end = EndToEnd.from_path_raw(
-        path_raw=path_raw_lst,
+        path_raw=path,
         cache=True,
         cache_raw=True,
     )
 
-    # end_to_end = EndToEnd.from_cache(
-    #     methods=methods,
-    # )
-    # end_to_end_results = end_to_end.to_results()
-    # results = end_to_end_results.get_results()
-    # table = get_subset_results(
-    #     output_dir=eval_dir,
-    #     new_results=results,
-    #     folds=[0],
-    #     subset=None,
-    # )
+def summary_evaluate(args):
+    eval_dir = Path(__file__).parent / "evals" / args.exp_name
+    os.makedirs(eval_dir, exist_ok=True)
 
-    # dataset_metric_map: pd.Series = (
-    #     table[["dataset", "metric"]]
-    #     .drop_duplicates()
-    #     .set_index("dataset")["metric"]
-    # )
+    methods = [
+        "FTTransformer", 
+        "LLMBaseline",
+        "LLMBaselineBidirectional",
+        "LLMBaselineBidirectionalPooling",
+        "TFMLLM"
+    ]
 
-    # method_category_list = ["(default)", "(tuned)", "(tuned + ensemble)"]
-    # for method_category in method_category_list:
-    #     tag = method_category.strip("()").replace(" + ", "_").replace(" ", "_")
+    end_to_end = EndToEnd.from_cache(
+        methods=methods,
+    )
+    end_to_end_results = end_to_end.to_results()
+    results = end_to_end_results.get_results()
+    table = get_subset_results(
+        output_dir=eval_dir,
+        new_results=results,
+        folds=[0],
+        subset=None,
+    )
 
-    #     pivot, abbrev_metric_map = pivot_main_table(
-    #         table=table,
-    #         method_category=method_category,
-    #         dataset_metric_map=dataset_metric_map,
-    #         model=args.model,
-    #     )
-    #     print(f"\n=== {method_category} ===")
-    #     print(pivot.head())
+    dataset_metric_map: pd.Series = (
+        table[["dataset", "metric"]]
+        .drop_duplicates()
+        .set_index("dataset")["metric"]
+    )
 
-    #     csv_path   = eval_dir / f"main_table_{tag}.csv"
-    #     latex_path = eval_dir / f"main_table_{tag}_latex.tex"
+    method_category_list = ["(default)", "(tuned)", "(tuned + ensemble)"]
+    for method_category in method_category_list:
+        tag = method_category.strip("()").replace(" + ", "_").replace(" ", "_")
 
-    #     pivot.to_csv(csv_path)
-    #     save_latex(
-    #         pivot=pivot,
-    #         abbrev_metric_map=abbrev_metric_map,
-    #         path=latex_path,
-    #         method_category=method_category,
-    #     )
+        pivot, abbrev_metric_map = pivot_main_table(
+            table=table,
+            method_category=method_category,
+            dataset_metric_map=dataset_metric_map,
+            model="LLMBaseline",
+        )
+        print(f"\n=== {method_category} ===")
+        print(pivot.head())
 
-    #     print(f"Saved: {csv_path}")
-        # print(f"Saved: {latex_path}")
+        csv_path   = eval_dir / f"main_table_{tag}.csv"
+        latex_path = eval_dir / f"main_table_{tag}_latex.tex"
 
+        pivot.to_csv(csv_path)
+        save_latex(
+            pivot=pivot,
+            abbrev_metric_map=abbrev_metric_map,
+            path=latex_path,
+            method_category=method_category,
+        )
+
+        print(f"Saved: {csv_path}")
+        print(f"Saved: {latex_path}")
+
+def main(args):
+    if args.generate_cache:
+        generate_cache(args)
+        return
+    summary_evaluate(args)    
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--model", type=str, default="TFMLLM")
     parser.add_argument("--exp_name", type=str, required=True)
+    parser.add_argument("--generate_cache", action='store_true')
     args = parser.parse_args()
 
     main(args)
