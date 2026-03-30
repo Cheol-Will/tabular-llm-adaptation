@@ -457,9 +457,10 @@ def run_experiments_new(
                             )
 
                         eval_metric_name = task.eval_metric
-                        # print(f"Using eval metric: {eval_metric_name}")
+                        # print(f"Running :{tabarena_task_name} with eval metric: {eval_metric_name}")
 
                     try:
+                        
                         out = model_experiment.run(
                             task=task,
                             fold=fold,
