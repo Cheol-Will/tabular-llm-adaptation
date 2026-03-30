@@ -594,7 +594,7 @@ class EndToEndResultsSingle:
         # FIXME: TMP
         if extra_results is not None:
             results = pd.concat([results, extra_results], ignore_index=True)
-
+        # print(results)
         return compare_on_tabarena(
             new_results=results,
             output_dir=output_dir,
