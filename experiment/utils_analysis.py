@@ -59,10 +59,6 @@ def save_best_csv(best: pd.DataFrame, out_path: Path) -> None:
     best.to_csv(out_path, index=False)
     print(f"Saved best configs CSV: {out_path}")
 
-
-
-
-
 METRIC_DIRECTION: dict[str, str] = {
     "roc_auc": "max",
     "rmse": "min",
@@ -85,6 +81,20 @@ BOTTOM_METHODS = [
     "LLMBaselineBidirectional",
     "LLMBaselineBidirectionalPooling",
     "TFMLLM", 
+]
+
+EXCLUDE_BASELINE_SUBSET = [
+    "GBM",
+    "RF",
+    "XGB",
+    "XT",
+    "FASTAI",
+    "MNCA_GPU",
+    "NN_TORCH",
+    "TABM_GPU",
+    "XRFM_GPU",
+    "TABDPT_GPU",
+    "TABPFNV2_GPU",
 ]
 
 METHOD_CATEGORY: dict[str, str] = {
@@ -236,6 +246,7 @@ def pivot_main_table(
     method_category: str,
     dataset_metric_map: pd.Series,
     model: str,
+    use_baseline_subset: bool = False,
 ) -> pd.DataFrame:
     table_filtered = table[table["method"].str.contains(method_category, regex=False)].copy()
     table_filtered["method"] = table_filtered["method"].apply(clean_method_name)
@@ -246,6 +257,9 @@ def pivot_main_table(
 
     # drop columns that model does not have result on
     model_rows = pivot[pivot.index == model]    
+
+    if use_baseline_subset:
+        pivot = pivot[~pivot.index.isin(EXCLUDE_BASELINE_SUBSET)]
 
     if not model_rows.empty:
         valid_cols = model_rows.columns[model_rows.notna().all(axis=0)]
