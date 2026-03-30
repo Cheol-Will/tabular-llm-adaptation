@@ -109,13 +109,13 @@ class LLMBaselineBidirectional(nn.Module):
 
         with autocast(device_type="cuda", dtype=torch.bfloat16):
             if self.task_type == "regression":
-                outputs = self.backbone(
+                # do not calculate logits for vocab with llm_head 
+                outputs = self.backbone.model(
                     input_ids=input_ids,
-                    attention_mask=bidir_attention_mask, # pass zero mask
-                    output_hidden_states=True,
+                    attention_mask=bidir_attention_mask,
                 )
-                last_hidden = outputs.hidden_states[-1][:, -1, :] # (B, llm_dim)
-                return self.regression_head(last_hidden.float()).squeeze(-1).float()
+                last_hidden = outputs.last_hidden_state[:, -1, :]
+                return self.regression_head(last_hidden.float()).squeeze(-1)
             else:
                 outputs = self.backbone(
                     input_ids=input_ids,
@@ -208,12 +208,19 @@ class LLMBaselineBidirectionalPooling(nn.Module):
         bidir_attention_mask = bidir_attention_mask.masked_fill(pad_mask[:, None, None, :], float("-inf"))
 
         with autocast(device_type="cuda", dtype=torch.bfloat16):
-            outputs = self.backbone(
+
+            # outputs = self.backbone(
+            #     input_ids=input_ids,
+            #     attention_mask=bidir_attention_mask,
+            #     output_hidden_states=True,
+            # )
+            # last_hidden = outputs.hidden_states[-1] # (B, S, D)
+
+            outputs = self.backbone.model(
                 input_ids=input_ids,
                 attention_mask=bidir_attention_mask,
-                output_hidden_states=True,
             )
-            last_hidden = outputs.hidden_states[-1] # (B, S, D)
+            last_hidden = outputs.last_hidden_state # (B, S, llm_dim)
             pooling_mask = attention_mask.unsqueeze(-1).bfloat16() # (B, S, 1)
             masked_hidden = last_hidden * pooling_mask
             pooled_hidden = masked_hidden.sum(dim=1) / pooling_mask.sum(dim=1) # (B, D)

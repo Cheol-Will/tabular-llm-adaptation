@@ -6,10 +6,6 @@ def get_experiment_configs(num_random_configs: int, exp_name: str):
     """Generate the hyperparameter configurations to run for TFM-LLM."""
     manual_configs = [
         {
-            # "num_gpus": 1,
-            # "num_gpus": 3,
-            "task_id": None,
-            "gpu_ids": [0, 1],
             "num_epochs": 200,
             "lr": 1e-3,
             "lora_lr": 1e-4,

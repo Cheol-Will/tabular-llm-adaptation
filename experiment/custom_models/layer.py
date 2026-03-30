@@ -68,6 +68,7 @@ class NumEmbeddingLayer(nn.Module):
         num_num_features: int,
         num_embedding_type: str, # [linear, linear-relu, plr, ple]
         token_dim: int,
+        bins = None,
         # *,
         # num_emb_sigma: float = 0.01,
         # n_frequencies: int = None,
@@ -94,6 +95,7 @@ class NumEmbeddingLayer(nn.Module):
             )
         elif num_embedding_type == 'ple': 
             # need to pass pre-computed bins
+            assert bins is not None
             raise NotImplementedError
         else:
             raise ValueError(f"Unknown numerical embedding type: {num_embedding_type}")

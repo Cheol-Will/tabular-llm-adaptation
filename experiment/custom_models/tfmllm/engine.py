@@ -33,9 +33,6 @@ TaskType = Literal["regression", "binclass", "multiclass"]
 logger = logging.getLogger(__name__)
 
 
-# ---------------------------------------------------------------------------
-# Helpers (module-level so mp.spawn can pickle them)
-# ---------------------------------------------------------------------------
 
 def _find_free_port() -> int:
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
@@ -252,10 +249,6 @@ def _ddp_worker(
     dist.destroy_process_group()
 
 
-# ---------------------------------------------------------------------------
-# Main class
-# ---------------------------------------------------------------------------
-
 class TFMLLMImplementation:
 
     def __init__(self, early_stopping_metric: Scorer, **config):
@@ -334,7 +327,8 @@ class TFMLLMImplementation:
             torch.manual_seed(random_state)
             np.random.seed(random_state)
 
-        gpu_ids = self.config.get("gpu_ids", [0, 1])
+        num_gpus = torch.cuda.device_count()
+        gpu_ids = list(range(num_gpus))
         self.device_ = torch.device(f"cuda:{gpu_ids[0]}")
         self.cat_col_names_ = cat_col_names
         self.num_col_names_ = [c for c in X_train.columns if c not in cat_col_names]
@@ -363,6 +357,15 @@ class TFMLLMImplementation:
 
         num_num_features = X_train_num.shape[1]
         cardinalities = self.ord_enc_.get_cardinalities() if self.cat_col_names_ else []
+
+        num_embedding_type=self.config.get("num_embedding_type", "plr")
+        if num_embedding_type == 'ple':
+            # TODO: compute bins and pass it to the model
+            
+
+            NotImplementedError
+
+
 
         # Spawn DDP workers
         world_size = len(gpu_ids)

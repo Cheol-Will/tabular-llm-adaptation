@@ -39,7 +39,6 @@ TaskType = Literal["regression", "binclass", "multiclass"]
 logger = logging.getLogger(__name__)
 
 
-
 def _find_free_port() -> int:
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.bind(("", 0))
