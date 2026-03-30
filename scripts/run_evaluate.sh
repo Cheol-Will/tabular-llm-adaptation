@@ -7,7 +7,8 @@
 # new_model="TFMLLM"
 
 # exp_name="260326"
-# new_model="LLMBaselineBidirectional"
+# # new_model="LLMBaselineBidirectional"
+# new_model="LLMBaselineBidirectionalPooling"
 
 # python experiment/evaluate.py \
 #     --model $new_model\
@@ -16,6 +17,7 @@
 
 
 # summary
+exp_name="260323"
 model="LLMBaseline"
 python experiment/evaluate.py \
     --model $model \

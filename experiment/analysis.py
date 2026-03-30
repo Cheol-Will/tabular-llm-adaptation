@@ -17,7 +17,7 @@ import argparse
 import os
 from pathlib import Path
 
-from analysis_utils import analyze_hpo
+from analysis_utils import analyze_hpo, analyze_reg_dist
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -35,8 +35,15 @@ def get_parser() -> argparse.ArgumentParser:
         "--analysis_type",
         type=str,
         required=True,
-        choices=["hpo"],
+        choices=["hpo", "reg-dist"],
         help="Type of analysis to perform",
+    )
+
+    parser.add_argument(
+        "--task_id",
+        type=str,
+        default=None,
+        help="Task ID to analyze (required for reg-dist)",
     )
 
     parser.add_argument(
@@ -91,6 +98,15 @@ def main():
         analyze_hpo(
             model=args.model,
             exp_name=args.exp_name,
+            output_dir=output_dir,
+        )
+    elif args.analysis_type == "reg-dist":
+        if args.task_id is None:
+            raise ValueError("--task_id is required for reg-dist analysis")
+        analyze_reg_dist(
+            model=args.model,
+            exp_name=args.exp_name,
+            task_id=args.task_id,
             output_dir=output_dir,
         )
     else:

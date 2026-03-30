@@ -39,20 +39,18 @@ def filter_data(args):
         task_ids =[
             363621,
             363629,
-            # 363614, # num_features=39 OOM on 2 GPUs
             363698,
-            # 363626, # num_features=21 OOM 
             363685,
             363625,
-            # 363696, # num_featrues=42 OOM on 2 GPUS
             363675,
             363707,
         ]
     if args.subset == 'small-large-features':
         task_ids = [
-            363614, # num_features=39 OOM on 2 GPUs
             363626,
-            363696, # num_featrues=42 OOM on 2 GPUS
+            # 363626, # num_features=21 
+            # 363614, # num_features=39 OOM on 2 GPUs
+            # 363696, # num_featrues=42 OOM on 2 GPUS
         ]
 
     return task_ids

@@ -7,6 +7,8 @@ from __future__ import annotations
 import pickle
 from pathlib import Path
 
+import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 
 from tabarena.utils.pickle_utils import fetch_all_pickles
@@ -329,3 +331,111 @@ def analyze_hpo(
     print(f"\n{'='*80}")
     print(f"HPO Analysis Complete!")
     print(f"{'='*80}\n")
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Regression Distribution Analysis
+# ─────────────────────────────────────────────────────────────────────────────
+
+def analyze_reg_dist(
+    model: str,
+    exp_name: str,
+    task_id: str,
+    output_dir: Path,
+) -> None:
+    """
+    Plot the distribution of ground truth y_test vs predicted values
+    for a given task, grouped by config (folds pooled within each config).
+
+    Directory structure expected:
+        results/{exp_name}/{model}/data/{config_name}/{task_id}/{fold}/results.pkl
+
+    Args:
+        model: Model name (e.g., TFMLLM)
+        exp_name: Experiment name (directory under results/)
+        task_id: Task ID to analyze
+        output_dir: Directory to save the output plot
+    """
+    base_dir = Path(__file__).parent / "results" / exp_name / model
+
+    # Structure: data/{config_name}/{task_id}/{fold}/results.pkl
+    pkl_paths = sorted(base_dir.glob(f"data/*/{task_id}/*/results.pkl"))
+    if not pkl_paths:
+        raise FileNotFoundError(
+            f"No results.pkl found for task_id={task_id} under {base_dir}/data/"
+        )
+
+    print(f"Found {len(pkl_paths)} result file(s) for task_id={task_id}")
+
+    # Group by config_name (pool folds within each config)
+    # path structure: .../data/{config_name}/{task_id}/{fold}/results.pkl
+    #   parts[-4] = config_name, parts[-3] = task_id, parts[-2] = fold
+    config_data: dict[str, dict] = {}
+
+    for path in pkl_paths:
+        config_name = path.parts[-4]
+        fold_name = path.parts[-2]
+
+        with open(path, "rb") as f:
+            obj = pickle.load(f)
+
+        sim = obj.get("simulation_artifacts", None)
+        if sim is None:
+            print(f"  [SKIP] No simulation_artifacts: {config_name}/{fold_name}")
+            continue
+
+        y_test = np.asarray(sim["y_test"]).ravel()
+        pred_raw = sim["pred_proba_dict_test"]
+        if isinstance(pred_raw, dict):
+            # BAG: average predictions across bag members
+            y_pred = np.mean([np.asarray(v).ravel() for v in pred_raw.values()], axis=0)
+        else:
+            y_pred = np.asarray(pred_raw).ravel()
+
+        if config_name not in config_data:
+            config_data[config_name] = {"y_test": [], "y_pred": []}
+        config_data[config_name]["y_test"].append(y_test)
+        config_data[config_name]["y_pred"].append(y_pred)
+        print(f"  [OK] {config_name} / {fold_name}: n={len(y_test)}")
+
+    if not config_data:
+        raise ValueError("No valid simulation_artifacts found in any pkl file.")
+
+    # Pool folds within each config
+    config_names = sorted(config_data.keys())
+    config_y_test = [np.concatenate(config_data[c]["y_test"]) for c in config_names]
+    config_y_pred = [np.concatenate(config_data[c]["y_pred"]) for c in config_names]
+
+    # At most 10 configs, laid out as 2 columns x 5 rows
+    config_names = config_names[:10]
+    config_y_test = config_y_test[:10]
+    config_y_pred = config_y_pred[:10]
+
+    n_cols = 5
+    n_rows = 2
+    fig, axes = plt.subplots(n_rows, n_cols, figsize=(5 * n_cols, 4 * n_rows))
+
+    for i, (name, y_true, y_pred) in enumerate(zip(config_names, config_y_test, config_y_pred)):
+        row, col = divmod(i, n_cols)
+        ax = axes[row, col]
+        bins = 40
+        ax.hist(y_true, bins=bins, alpha=0.6, label="y_test", color="steelblue")
+        ax.hist(y_pred, bins=bins, alpha=0.6, label="y_pred", color="tomato")
+        n_folds = len(config_data[name]["y_test"])
+        ax.set_title(f"{name} ({n_folds} fold(s))")
+        ax.set_xlabel("Value")
+        ax.set_ylabel("Count")
+        ax.legend()
+
+    # Hide any unused subplots
+    for j in range(len(config_names), n_rows * n_cols):
+        row, col = divmod(j, n_cols)
+        axes[row, col].set_visible(False)
+
+    fig.suptitle(f"Regression Distribution — {model} | task_id={task_id}", fontsize=13)
+    plt.tight_layout()
+
+    out_path = output_dir / f"reg_dist_{model}_{task_id}.png"
+    plt.savefig(out_path, dpi=150)
+    plt.close(fig)
+    print(f"\n[SAVED] {out_path}")

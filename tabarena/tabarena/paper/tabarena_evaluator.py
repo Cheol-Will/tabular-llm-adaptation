@@ -1339,6 +1339,8 @@ class TabArenaEvaluator:
                 # boxplot.set_title("Effect of tuning and ensembling")
 
                 # do this before setting x/y limits
+                baselines = []
+                baseline_colors = []
                 for baseline_idx, (baseline, color) in enumerate(zip(baselines, baseline_colors)):
                     baseline_mean = baseline_means[baseline]
 

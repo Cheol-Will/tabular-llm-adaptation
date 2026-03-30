@@ -68,7 +68,7 @@ def save_main_table(args, end_to_end_results, eval_dir):
             )
 
             print(f"Saved: {csv_path}")
-            print(f"Saved: {latex_path}")
+            print(f"Saved: {latex_path}\n")
 
 
 def plot_elo(args, end_to_end_results, eval_dir):
@@ -80,6 +80,7 @@ def plot_elo(args, end_to_end_results, eval_dir):
     )
     leaderboard_website = format_leaderboard(df_leaderboard=leaderboard)
     print(leaderboard_website.to_markdown(index=False))
+    print(f"Plot is saved into {eval_dir}")
 
 
 def summary_evaluate(args):
