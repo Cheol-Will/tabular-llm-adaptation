@@ -8,6 +8,7 @@ import pandas as pd
 
 from tabarena.nips2025_utils.end_to_end import EndToEnd
 from tabarena.nips2025_utils.compare import get_subset_results
+from tabarena.website.website_format import format_leaderboard
 from utils_analysis import pivot_main_table, save_latex
 
 
@@ -19,22 +20,13 @@ def generate_cache(args):
         cache_raw=True,
     )
 
-def summary_evaluate(args):
-    eval_dir = Path(__file__).parent / "evals" / args.exp_name
-    os.makedirs(eval_dir, exist_ok=True)
 
-    methods = [
-        "FTTransformer", 
-        "LLMBaseline",
-        "LLMBaselineBidirectional",
-        "LLMBaselineBidirectionalPooling",
-        "TFMLLM"
-    ]
+def save_main_table(args, end_to_end_results, eval_dir):
+    csv_dir = eval_dir / "csv"
+    latex_dir = eval_dir / "latex"
+    os.makedirs(csv_dir, exist_ok=True)
+    os.makedirs(latex_dir, exist_ok=True)
 
-    end_to_end = EndToEnd.from_cache(
-        methods=methods,
-    )
-    end_to_end_results = end_to_end.to_results()
     results = end_to_end_results.get_results()
     table = get_subset_results(
         output_dir=eval_dir,
@@ -50,31 +42,68 @@ def summary_evaluate(args):
     )
 
     method_category_list = ["(default)", "(tuned)", "(tuned + ensemble)"]
+    
     for method_category in method_category_list:
         tag = method_category.strip("()").replace(" + ", "_").replace(" ", "_")
 
-        pivot, abbrev_metric_map = pivot_main_table(
-            table=table,
-            method_category=method_category,
-            dataset_metric_map=dataset_metric_map,
-            model="LLMBaseline",
-        )
-        print(f"\n=== {method_category} ===")
-        print(pivot.head())
+        for use_baseline_subset in [True, False]:
+            subset_tag = "subset" if use_baseline_subset else "full"
+            csv_path   = csv_dir / f"main_table_{tag}_{subset_tag}.csv"
+            latex_path = latex_dir / f"main_table_{tag}_{subset_tag}_latex.tex"
 
-        csv_path   = eval_dir / f"main_table_{tag}.csv"
-        latex_path = eval_dir / f"main_table_{tag}_latex.tex"
+            pivot, abbrev_metric_map = pivot_main_table(
+                table=table,
+                method_category=method_category,
+                dataset_metric_map=dataset_metric_map,
+                model=args.model,
+                use_baseline_subset=use_baseline_subset,
+            )
 
-        pivot.to_csv(csv_path)
-        save_latex(
-            pivot=pivot,
-            abbrev_metric_map=abbrev_metric_map,
-            path=latex_path,
-            method_category=method_category,
-        )
+            pivot.to_csv(csv_path)
+            save_latex(
+                pivot=pivot,
+                abbrev_metric_map=abbrev_metric_map,
+                path=latex_path,
+                method_category=method_category,
+            )
 
-        print(f"Saved: {csv_path}")
-        print(f"Saved: {latex_path}")
+            print(f"Saved: {csv_path}")
+            print(f"Saved: {latex_path}")
+
+
+def plot_elo(args, end_to_end_results, eval_dir):
+    leaderboard: pd.DataFrame = end_to_end_results.compare_on_tabarena(
+        output_dir=eval_dir,
+        only_valid_tasks=[f"{args.model} (default)"],  # filter dataset 
+        use_model_results=False,  # If False: Will instead use the ensemble/HPO results
+        # new_result_prefix="260330",
+    )
+    leaderboard_website = format_leaderboard(df_leaderboard=leaderboard)
+    print(leaderboard_website.to_markdown(index=False))
+
+
+def summary_evaluate(args):
+    plot_dir = Path(__file__).parent / "evals" / args.exp_name / "plot"
+    eval_dir = Path(__file__).parent / "evals" / args.exp_name
+    
+    os.makedirs(plot_dir, exist_ok=True)
+    os.makedirs(eval_dir, exist_ok=True)
+
+    methods = [
+        "FTTransformer", 
+        "LLMBaseline",
+        "LLMBaselineBidirectional",
+        "LLMBaselineBidirectionalPooling",
+        "TFMLLM"
+    ]
+
+    end_to_end = EndToEnd.from_cache(
+        methods=methods,
+    )
+    end_to_end_results = end_to_end.to_results()
+    
+    plot_elo(args, end_to_end_results, plot_dir)
+    save_main_table(args, end_to_end_results, eval_dir)
 
 def main(args):
     if args.generate_cache:
@@ -86,6 +115,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--model", type=str, default="TFMLLM")
     parser.add_argument("--exp_name", type=str, required=True)
+    parser.add_argument("--baseline_subset", action='store_true')
     parser.add_argument("--generate_cache", action='store_true')
     args = parser.parse_args()
 

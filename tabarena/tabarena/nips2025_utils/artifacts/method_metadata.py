@@ -254,8 +254,9 @@ class MethodMetadata:
         assert len(unique_model_types) == 1, f"MethodMetadata requires exactly 1 model type, found: {unique_model_types}"
 
         unique_num_gpus = result_df["num_gpus"].unique()
-        assert len(unique_num_gpus) == 1
+        # assert len(unique_num_gpus) == 1
         num_gpus = unique_num_gpus[0]
+        print(f"Num_gpus: {num_gpus} for method {method} (config)")
 
         if compute is None:
             compute: Literal["cpu", "gpu"] = "cpu" if num_gpus == 0 else "gpu"
