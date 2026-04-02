@@ -16,22 +16,22 @@ import torch.distributed as dist
 import torch.multiprocessing as mp
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data import DataLoader, TensorDataset, DistributedSampler
+from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.impute import SimpleImputer
 from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import RobustScaler
 from tqdm.auto import tqdm
 
 from autogluon.core.metrics import compute_metric
 from peft import LoraConfig, get_peft_model
 
-from ..preprocessor import CustomOrdinalEncoder, CustomQuantileTransformer
-from .model import TFMLLM
-
+from ..preprocessor import CustomOrdinalEncoder, SmoothClipTransformer
+from ..tfmllm.model import TFMLLM 
 if TYPE_CHECKING:
     from autogluon.core.metrics import Scorer
 
 TaskType = Literal["regression", "binclass", "multiclass"]
 logger = logging.getLogger(__name__)
-
 
 
 def _find_free_port() -> int:
@@ -71,7 +71,7 @@ def _evaluate_worker(
         y_pred_proba = None
     else:
         y_true = y_tensor.numpy().astype(np.int64)
-        y_pred_proba = torch.softmax(output, dim=-1).float().numpy()
+        y_pred_proba = torch.softmax(output.float(), dim=-1).numpy()
         y_pred = y_pred_proba.argmax(axis=1)
         if task_type == "binclass":
             y_pred_proba = y_pred_proba[:, 1]
@@ -154,6 +154,8 @@ def _ddp_worker(
     )
 
     loss_fn = nn.MSELoss() if task_type == "regression" else nn.CrossEntropyLoss()
+    # label_smoothing=config.get("label_smoothing", 0.1)) # following RealMLP
+            
     lr = config.get("lr", 1e-3)
     lora_lr = config.get("lora_lr", 1e-4)
     optimizer = torch.optim.AdamW([
@@ -250,7 +252,7 @@ def _ddp_worker(
     dist.destroy_process_group()
 
 
-class TFMLLMImplementation:
+class LLMAdapterEngineeredImplementation:
 
     def __init__(self, early_stopping_metric: Scorer, **config):
         self.config = config
@@ -266,6 +268,8 @@ class TFMLLMImplementation:
         self.device_: torch.device | None = None
         self.y_mean_: float = 0.0
         self.y_std_: float = 1.0
+        self.y_min_: float = -np.inf
+        self.y_max_: float = np.inf
 
     def _check_is_fitted(self):
         if self.model is None:
@@ -281,11 +285,10 @@ class TFMLLMImplementation:
         if self.num_col_names_:
             x_cont_np = X[self.num_col_names_].to_numpy(dtype=np.float32)
             if is_train:
-                self.num_prep_.fit(x_cont_np)
-            X_num = torch.as_tensor(
-                self.num_prep_.transform(x_cont_np),
-                dtype=torch.float32,
-            )
+                x_cont_np = self.num_prep_.fit_transform(x_cont_np)
+            else:
+                x_cont_np = self.num_prep_.transform(x_cont_np)
+            X_num = torch.as_tensor(x_cont_np, dtype=torch.float32)
         else:
             X_num = torch.empty((len(X), 0), dtype=torch.float32)
 
@@ -339,8 +342,9 @@ class TFMLLMImplementation:
         # Preprocessors
         self.ord_enc_ = CustomOrdinalEncoder()
         self.num_prep_ = Pipeline(steps=[
-            ("qt", CustomQuantileTransformer(random_state=random_state)),
-            ("imp", SimpleImputer(add_indicator=True)),
+            ("imp", SimpleImputer(strategy="median")),
+            ("robust_scale", RobustScaler()),
+            ("smooth_clip", SmoothClipTransformer()),
         ])
 
         # Data preparation
@@ -353,6 +357,10 @@ class TFMLLMImplementation:
             self.y_mean_ = float(y_train_tensor.mean().item())
             self.y_std_ = float(y_train_tensor.std().item())
             y_train_tensor = (y_train_tensor - self.y_mean_) / self.y_std_
+            
+            # save min, max observed during training
+            self.y_min_ = float(y_train_tensor.min().item())
+            self.y_max_ = float(y_train_tensor.max().item())
         else:
             self.n_classes_ = int(y_train_tensor.max().item() + 1)
 
@@ -362,11 +370,7 @@ class TFMLLMImplementation:
         num_embedding_type=self.config.get("num_embedding_type", "plr")
         if num_embedding_type == 'ple':
             # TODO: compute bins and pass it to the model
-            
-
             NotImplementedError
-
-
 
         # Spawn DDP workers
         world_size = len(gpu_ids)
@@ -444,12 +448,15 @@ class TFMLLMImplementation:
     def predict(self, X: pd.DataFrame) -> np.ndarray:
         raw = self.predict_raw(X)
         if self.task_type_ == "regression":
-            return raw.squeeze(-1).float().numpy() * self.y_std_ + self.y_mean_
+            # clip target value with min, max observed durining training
+            preds = np.clip(raw.squeeze(-1).float().numpy(), self.y_min_, self.y_max_)
+            return preds * self.y_std_ + self.y_mean_
         return raw.argmax(dim=-1).numpy()
 
     def predict_proba(self, X: pd.DataFrame) -> np.ndarray:
         raw = self.predict_raw(X)
         if self.task_type_ == "regression":
-            return raw.squeeze(-1).float().numpy() * self.y_std_ + self.y_mean_
+            preds = np.clip(raw.squeeze(-1).float().numpy(), self.y_min_, self.y_max_)
+            return preds * self.y_std_ + self.y_mean_
         probas = torch.softmax(raw, dim=-1).float().numpy()
         return probas[:, 1] if self.task_type_ == "binclass" else probas

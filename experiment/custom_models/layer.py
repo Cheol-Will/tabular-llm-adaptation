@@ -170,13 +170,13 @@ class CategoricalEmbedding(nn.Module):
     
 
 class OutputProj(nn.Module):
-    def __init__(self, hidden_dim, num_classes):
+    def __init__(self, hidden_dim, num_classes, mlp_ratio = 1.0):
         super().__init__()
         self.num_classes = num_classes
         self.norm = nn.LayerNorm(hidden_dim) 
-        self.lin1 = nn.Linear(hidden_dim, hidden_dim)
+        self.lin1 = nn.Linear(hidden_dim, int(hidden_dim * mlp_ratio))
         self.relu = nn.ReLU()
-        self.lin2 = nn.Linear(hidden_dim, num_classes)
+        self.lin2 = nn.Linear(int(hidden_dim * mlp_ratio), num_classes)
 
     def forward(self, x):
         x = self.norm(x)

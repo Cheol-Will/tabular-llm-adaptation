@@ -18,7 +18,7 @@ LLM_DIM_MAPPING = {
 }
 
 
-class TFMLLM(nn.Module):
+class LLMAdapterReg(nn.Module):
 
     def __init__(
         self,
@@ -28,8 +28,8 @@ class TFMLLM(nn.Module):
         num_embedding_type: str = 'plr',
         token_dim: int = 16,
         num_classes: int = 1,
-        mlp_ratio: float = 1.0,
         use_cls: bool = False, # TODO: use cls or mean pooling
+        mlp_ratio: float = 1.0,
     ):  
         super().__init__()
         self.num_features = num_num_features + len(cardinalities) # num columns

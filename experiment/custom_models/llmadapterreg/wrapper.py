@@ -4,6 +4,7 @@ import logging
 import time
 from contextlib import contextmanager
 
+import numpy as np
 import pandas as pd
 import torch
 
@@ -24,9 +25,9 @@ def set_logger_level(logger_name: str, level: int):
     finally:
         _logger.setLevel(old_level)
 
-class TFMLLMModel(AbstractModel):
-    ag_key = "TFMLLM"
-    ag_name = "TFMLLM"
+class LLMAdapterRegModel(AbstractModel):
+    ag_key = "LLMAdapterReg"
+    ag_name = "LLMAdapterReg"
     
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -53,7 +54,7 @@ class TFMLLMModel(AbstractModel):
         log_level = logging.WARNING if verbosity <= 2 else logging.INFO
         device = 'cuda' if num_gpus > 0 and torch.cuda.is_available() else 'cpu'
 
-        from .engine import TFMLLMImplementation
+        from .engine import LLMAdapterRegImplementation
 
         if X_val is None:
             from autogluon.core.utils import generate_train_test_split
@@ -70,7 +71,7 @@ class TFMLLMModel(AbstractModel):
 
         cat_cols = X.select_dtypes(include='category').columns.tolist()
 
-        self.model = TFMLLMImplementation(
+        self.model = LLMAdapterRegImplementation(
             early_stopping_metric=self.stopping_metric,
             device=device,
             problem_type=self.problem_type,
@@ -97,9 +98,8 @@ class TFMLLMModel(AbstractModel):
         preds = self.model.predict_raw(X)
 
         if self.problem_type == 'regression':
-            return (
-                preds.squeeze(-1).float().cpu().numpy() * self.model.y_std_ + self.model.y_mean_
-            )
+            clipped = np.clip(preds.squeeze(-1).float().cpu().numpy(), self.model.y_min_, self.model.y_max_)
+            return clipped * self.model.y_std_ + self.model.y_mean_
         probs = torch.softmax(preds.float(), dim=-1).detach().cpu().numpy()
         return self._convert_proba_to_unified_form(probs)
     
@@ -148,6 +148,7 @@ class TFMLLMModel(AbstractModel):
         defaults = {
             # architecture
             # "num_gpus": 1,
+            "gpu_ids": [0, 1, 2],
             "num_epochs": 200,
             "lr": 1e-3,
             "lora_lr": 1e-4,

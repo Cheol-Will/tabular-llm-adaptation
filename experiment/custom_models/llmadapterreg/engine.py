@@ -18,20 +18,19 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data import DataLoader, TensorDataset, DistributedSampler
 from sklearn.impute import SimpleImputer
 from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import RobustScaler
 from tqdm.auto import tqdm
 
 from autogluon.core.metrics import compute_metric
 from peft import LoraConfig, get_peft_model
 
-from ..preprocessor import CustomOrdinalEncoder, CustomQuantileTransformer
-from .model import TFMLLM
-
+from ..preprocessor import CustomOrdinalEncoder, SmoothClipTransformer
+from .model import LLMAdapterReg
 if TYPE_CHECKING:
     from autogluon.core.metrics import Scorer
 
 TaskType = Literal["regression", "binclass", "multiclass"]
 logger = logging.getLogger(__name__)
-
 
 
 def _find_free_port() -> int:
@@ -51,6 +50,8 @@ def _evaluate_worker(
     early_stopping_metric,
     device: torch.device,
     eval_batch_size: int = 4096,
+    num_buckets: int = 0,
+    bucket_centers_tensor: torch.Tensor | None = None,
 ) -> float:
     """Run evaluation on rank-0 using the unwrapped model (no DDP sync needed)."""
     model.eval()
@@ -66,12 +67,18 @@ def _evaluate_worker(
     output = torch.cat(outputs, dim=0)
 
     if task_type == "regression":
-        y_pred = output.squeeze(-1).float().numpy() * y_std + y_mean
+        if num_buckets > 0 and bucket_centers_tensor is not None:
+            # bucket regression: expected value = softmax-weighted sum of bucket centers
+            probs = torch.softmax(output.float(), dim=-1)  # (B, K)
+            y_pred_norm = (probs * bucket_centers_tensor).sum(dim=-1).numpy()
+        else:
+            y_pred_norm = output.squeeze(-1).float().numpy()
+        y_pred = y_pred_norm * y_std + y_mean
         y_true = y_tensor.numpy() * y_std + y_mean
         y_pred_proba = None
     else:
         y_true = y_tensor.numpy().astype(np.int64)
-        y_pred_proba = torch.softmax(output, dim=-1).float().numpy()
+        y_pred_proba = torch.softmax(output.float(), dim=-1).numpy()
         y_pred = y_pred_proba.argmax(axis=1)
         if task_type == "binclass":
             y_pred_proba = y_pred_proba[:, 1]
@@ -107,6 +114,9 @@ def _ddp_worker(
     start_time: float,
     time_to_fit_in_seconds: float | None,
     master_port: int,
+    num_buckets: int = 0,
+    bucket_edges: np.ndarray | None = None,
+    bucket_centers: np.ndarray | None = None,
 ):
     device = torch.device(f"cuda:{gpu_ids[rank]}")
     torch.cuda.set_device(device)
@@ -119,13 +129,16 @@ def _ddp_worker(
         device_id=device,
     )
 
-    model = TFMLLM(
+    # For bucket regression the output head has K classes (one logit per bucket)
+    effective_num_classes = num_buckets if (num_buckets > 0 and task_type == "regression") else n_classes
+
+    model = LLMAdapterReg(
         num_num_features=num_num_features,
         cardinalities=cardinalities,
         model_name=config.get("model_name", "Qwen/Qwen2.5-0.5B"),
         num_embedding_type=config.get("num_embedding_type", "plr"),
         token_dim=config.get("token_dim", 16),
-        num_classes=n_classes,
+        num_classes=effective_num_classes,
     ).to(device)
 
     lora_config = LoraConfig(
@@ -143,6 +156,18 @@ def _ddp_worker(
 
     base = model.module.base_model.model
 
+    # Bucket regression: convert normalized float targets → bucket indices (LongTensor)
+    bucket_centers_tensor: torch.Tensor | None = None
+    if task_type == "regression" and num_buckets > 0 and bucket_edges is not None:
+        bucket_boundaries = torch.tensor(bucket_edges[1:-1], dtype=torch.float32)
+        y_train_tensor = torch.bucketize(y_train_tensor, boundaries=bucket_boundaries)
+        bucket_centers_tensor = torch.tensor(bucket_centers, dtype=torch.float32)
+        loss_fn = nn.CrossEntropyLoss()
+    elif task_type == "regression":
+        loss_fn = nn.MSELoss()
+    else:
+        loss_fn = nn.CrossEntropyLoss()
+
     train_dataset = TensorDataset(X_train_num, X_train_cat, y_train_tensor)
     train_sampler = DistributedSampler(
         train_dataset, num_replicas=world_size, rank=rank, shuffle=True
@@ -153,11 +178,12 @@ def _ddp_worker(
         sampler=train_sampler,
     )
 
-    loss_fn = nn.MSELoss() if task_type == "regression" else nn.CrossEntropyLoss()
     lr = config.get("lr", 1e-3)
     lora_lr = config.get("lora_lr", 1e-4)
     optimizer = torch.optim.AdamW([
         {"params": base.feature_tokenizer.parameters(), "lr": lr},
+        {"params": base.mlp_adapter.parameters(), "lr": lr},
+        {"params": [base.pos_embedding], "lr": lr},
         {"params": base.output_proj.parameters(), "lr": lr},
         {"params": base.backbone.parameters(), "lr": lora_lr},
     ], weight_decay=config.get("weight_decay", 1e-5))
@@ -173,6 +199,8 @@ def _ddp_worker(
             model.module, X_val_num, X_val_cat, y_val_tensor,
             task_type, y_mean, y_std, early_stopping_metric, device,
             eval_batch_size=config.get("eval_batch_size", 4096),
+            num_buckets=num_buckets,
+            bucket_centers_tensor=bucket_centers_tensor,
         )
         best_state = {k: v.cpu().clone() for k, v in model.module.state_dict().items()}
         logger.info(f"Epoch 000 (baseline): Val Score = {best_val_score:.4f}")
@@ -198,9 +226,9 @@ def _ddp_worker(
             batch_y = batch_y.to(device)
             optimizer.zero_grad()
             output = model(batch_num, batch_cat)
-            if task_type == "regression":
+            if task_type == "regression" and num_buckets == 0:
                 output = output.squeeze(-1).float()
-            loss = loss_fn(output, batch_y)
+            loss = loss_fn(output.float(), batch_y)
             loss.backward()
             optimizer.step()
             train_loss += loss.item()
@@ -212,6 +240,8 @@ def _ddp_worker(
                 model.module, X_val_num, X_val_cat, y_val_tensor,
                 task_type, y_mean, y_std, early_stopping_metric, device,
                 eval_batch_size=config.get("eval_batch_size", 4096),
+                num_buckets=num_buckets,
+                bucket_centers_tensor=bucket_centers_tensor,
             )
             avg_loss = train_loss / len(train_loader)
             if isinstance(epoch_iter, tqdm):
@@ -250,7 +280,7 @@ def _ddp_worker(
     dist.destroy_process_group()
 
 
-class TFMLLMImplementation:
+class LLMAdapterRegImplementation:
 
     def __init__(self, early_stopping_metric: Scorer, **config):
         self.config = config
@@ -266,6 +296,9 @@ class TFMLLMImplementation:
         self.device_: torch.device | None = None
         self.y_mean_: float = 0.0
         self.y_std_: float = 1.0
+        self.y_min_: float = -np.inf
+        self.y_max_: float = np.inf
+        self.bucket_centers_: np.ndarray | None = None  # normalized bucket centers (set when num_buckets > 0)
 
     def _check_is_fitted(self):
         if self.model is None:
@@ -281,11 +314,10 @@ class TFMLLMImplementation:
         if self.num_col_names_:
             x_cont_np = X[self.num_col_names_].to_numpy(dtype=np.float32)
             if is_train:
-                self.num_prep_.fit(x_cont_np)
-            X_num = torch.as_tensor(
-                self.num_prep_.transform(x_cont_np),
-                dtype=torch.float32,
-            )
+                x_cont_np = self.num_prep_.fit_transform(x_cont_np)
+            else:
+                x_cont_np = self.num_prep_.transform(x_cont_np)
+            X_num = torch.as_tensor(x_cont_np, dtype=torch.float32)
         else:
             X_num = torch.empty((len(X), 0), dtype=torch.float32)
 
@@ -339,8 +371,9 @@ class TFMLLMImplementation:
         # Preprocessors
         self.ord_enc_ = CustomOrdinalEncoder()
         self.num_prep_ = Pipeline(steps=[
-            ("qt", CustomQuantileTransformer(random_state=random_state)),
-            ("imp", SimpleImputer(add_indicator=True)),
+            ("imp", SimpleImputer(strategy="median")),
+            ("robust_scale", RobustScaler()),
+            ("smooth_clip", SmoothClipTransformer()),
         ])
 
         # Data preparation
@@ -348,11 +381,32 @@ class TFMLLMImplementation:
         X_val_num, X_val_cat, y_val_tensor = self._prepare_data(X_val, y_val)
 
         # Regression: normalize target
+        bucket_edges: np.ndarray | None = None
+        num_buckets: int = 0
         if self.task_type_ == "regression":
             self.n_classes_ = 1
             self.y_mean_ = float(y_train_tensor.mean().item())
             self.y_std_ = float(y_train_tensor.std().item())
             y_train_tensor = (y_train_tensor - self.y_mean_) / self.y_std_
+
+            # save min, max observed during training (normalized)
+            self.y_min_ = float(y_train_tensor.min().item())
+            self.y_max_ = float(y_train_tensor.max().item())
+
+            # Bucket regression: compute quantile edges from normalized training targets
+            num_buckets = self.config.get("num_buckets", 0)
+            if num_buckets > 0:
+                quantile_probs = np.linspace(0.0, 1.0, num_buckets + 1)
+                edges = np.quantile(y_train_tensor.numpy(), quantile_probs).astype(np.float32)
+                edges = np.unique(edges)  # remove duplicates (can happen for sparse targets)
+                if len(edges) < 2:
+                    logger.warning("Not enough unique quantile edges; falling back to scalar regression.")
+                    num_buckets = 0
+                else:
+                    num_buckets = len(edges) - 1
+                    bucket_edges = edges
+                    self.bucket_centers_ = ((edges[:-1] + edges[1:]) / 2).astype(np.float32)
+                    logger.info(f"Bucket regression: {num_buckets} buckets from quantile edges.")
         else:
             self.n_classes_ = int(y_train_tensor.max().item() + 1)
 
@@ -362,11 +416,7 @@ class TFMLLMImplementation:
         num_embedding_type=self.config.get("num_embedding_type", "plr")
         if num_embedding_type == 'ple':
             # TODO: compute bins and pass it to the model
-            
-
             NotImplementedError
-
-
 
         # Spawn DDP workers
         world_size = len(gpu_ids)
@@ -383,10 +433,14 @@ class TFMLLMImplementation:
                 X_val_num, X_val_cat, y_val_tensor,
                 self.early_stopping_metric, model_save_path,
                 start_time, time_to_fit_in_seconds, master_port,
+                num_buckets, bucket_edges, self.bucket_centers_,
             ),
             nprocs=world_size,
             join=True,
         )
+
+        # effective output size: K buckets for bucket regression, n_classes otherwise
+        effective_num_classes = num_buckets if num_buckets > 0 else self.n_classes_
 
         # Load the best model on the primary GPU for inference
         lora_config = LoraConfig(
@@ -396,13 +450,13 @@ class TFMLLMImplementation:
             lora_dropout=self.config.get("lora_dropout", 0.1),
             bias="none",
         )
-        self.model = TFMLLM(
+        self.model = LLMAdapterReg(
             num_num_features=num_num_features,
             cardinalities=cardinalities,
             model_name=self.config.get("model_name", "Qwen/Qwen2.5-0.5B"),
             num_embedding_type=self.config.get("num_embedding_type", "plr"),
             token_dim=self.config.get("token_dim", 16),
-            num_classes=self.n_classes_,
+            num_classes=effective_num_classes,
         ).to(self.device_)
         self.model = get_peft_model(self.model, lora_config)
         if os.path.exists(model_save_path):
@@ -439,17 +493,26 @@ class TFMLLMImplementation:
         self._check_is_fitted()
         self.model.eval()
         X_num, X_cat, _ = self._prepare_data(X)
-        return self._get_raw_outputs(X_num, X_cat, self.config.get("eval_batch_size", 1024))
+        raw = self._get_raw_outputs(X_num, X_cat, self.config.get("eval_batch_size", 1024))
+        if self.task_type_ == "regression" and self.bucket_centers_ is not None:
+            # bucket regression: convert logits → normalized scalar via expected value
+            centers = torch.tensor(self.bucket_centers_, dtype=torch.float32)
+            probs = torch.softmax(raw.float(), dim=-1)  # (B, K)
+            return (probs * centers).sum(dim=-1)  # (B,) normalized scalar
+        return raw
 
     def predict(self, X: pd.DataFrame) -> np.ndarray:
         raw = self.predict_raw(X)
         if self.task_type_ == "regression":
-            return raw.squeeze(-1).float().numpy() * self.y_std_ + self.y_mean_
+            # clip target value with min, max observed durining training
+            preds = np.clip(raw.squeeze(-1).float().numpy(), self.y_min_, self.y_max_)
+            return preds * self.y_std_ + self.y_mean_
         return raw.argmax(dim=-1).numpy()
 
     def predict_proba(self, X: pd.DataFrame) -> np.ndarray:
         raw = self.predict_raw(X)
         if self.task_type_ == "regression":
-            return raw.squeeze(-1).float().numpy() * self.y_std_ + self.y_mean_
-        probas = torch.softmax(raw, dim=-1).float().numpy()
+            preds = np.clip(raw.squeeze(-1).float().numpy(), self.y_min_, self.y_max_)
+            return preds * self.y_std_ + self.y_mean_
+        probas = torch.softmax(raw.float(), dim=-1).numpy()
         return probas[:, 1] if self.task_type_ == "binclass" else probas

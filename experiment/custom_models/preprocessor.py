@@ -4,6 +4,14 @@ from sklearn.utils.validation import check_is_fitted
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.preprocessing import OrdinalEncoder, QuantileTransformer
 
+class SmoothClipTransformer(BaseEstimator, TransformerMixin):
+    """Soft clamp: x / sqrt(1 + x^2/9), asymptotes at ±3."""
+    def fit(self, X, y=None):
+        self.is_fitted_ = True
+        return self
+
+    def transform(self, X):
+        return X / np.sqrt(1.0 + X ** 2 / 9.0)
 
 class CustomQuantileTransformer(BaseEstimator, TransformerMixin):
     # adapted from pytabkit
