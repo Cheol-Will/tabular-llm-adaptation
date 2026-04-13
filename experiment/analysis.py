@@ -19,13 +19,7 @@ from pathlib import Path
 
 from analysis_utils import analyze_hpo, analyze_reg_dist
 
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Argument Parser
-# ─────────────────────────────────────────────────────────────────────────────
-
 def get_parser() -> argparse.ArgumentParser:
-    """Create argument parser."""
     parser = argparse.ArgumentParser(
         description="Modular analysis framework for TabArena experiments",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -68,11 +62,6 @@ def get_parser() -> argparse.ArgumentParser:
     )
 
     return parser
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Main Entry Point
-# ─────────────────────────────────────────────────────────────────────────────
 
 def main():
     """Main entry point - routes to appropriate analysis function."""

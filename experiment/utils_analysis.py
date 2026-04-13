@@ -81,6 +81,7 @@ BOTTOM_METHODS = [
     "LLMBaselineBidirectional",
     "LLMBaselineBidirectionalPooling",
     "TFMLLM", 
+    "LLMAdapterEngineered",
 ]
 
 EXCLUDE_BASELINE_SUBSET = [
@@ -116,10 +117,11 @@ METHOD_CATEGORY: dict[str, str] = {
     "TABDPT_GPU":                           "Foundation",
     "TABPFNV2_GPU":                         "Foundation",
     "FTTransformer":                        "DL",
-    "TFMLLM":                               "Foundation",
-    "LLMBaseline":                          "Foundation",
-    "LLMBaselineBidirectional":             "Foundation",
-    "LLMBaselineBidirectionalPooling":      "Foundation",
+    "TFMLLM":                               "LLM",
+    "LLMBaseline":                          "LLM",
+    "LLMBaselineBidirectional":             "LLM",
+    "LLMBaselineBidirectionalPooling":      "LLM",
+    "LLMAdapterEngineered":                 "LLM",
 }
 
 # Alias

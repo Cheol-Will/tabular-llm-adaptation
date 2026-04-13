@@ -18,8 +18,18 @@
 # echo "Analysis complete! Check evals/$EXP_NAME/ for results."
 
 
+# task_id=363675
+# task_id=363625
+# exp_name="260320-num_emb"
+
+analysis_type="hpo"
+exp_name="260401-2-engineering"
+# model="LLMAdapterEngineered"
+model="LLMAdapterReg"
+
 python experiment/analysis.py \
-    --analysis_type reg-dist \
-    --model TFMLLM \
-    --exp_name 260320-num_emb \
-    --task_id 363675
+    --analysis_type $analysis_type \
+    --model $model \
+    --exp_name $exp_name
+    # --task_id $task_id
+    # --analysis_type reg-dist \

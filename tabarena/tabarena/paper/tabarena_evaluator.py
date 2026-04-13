@@ -1183,7 +1183,7 @@ class TabArenaEvaluator:
 
         df_plot_w_mean_2 = df_plot_w_mean_2[~df_plot_w_mean_2["framework_type"].isin(baselines)]
 
-        df_plot_mean_dedupe = df_plot_w_mean_2.drop_duplicates(subset=["framework_type"], keep="first")
+        df_plot_mean_dedupe = df_plot_w_mean_2[df_plot_w_mean_2["tune_method"] == "tuned"].drop_duplicates(subset=["framework_type"], keep="first")
 
         framework_type_order_orig = list(df_plot_mean_dedupe["framework_type"].to_list())
         framework_type_order_orig.reverse()
@@ -1250,15 +1250,15 @@ class TabArenaEvaluator:
                 err_alpha = 0.6
 
                 to_plot = [
-                    dict(
-                        x=pos, y=y,
-                        label="Tuned + Ensembled",
-                        data=df_plot_w_mean_per_dataset[df_plot_w_mean_per_dataset["tune_method"] == "tuned_ensembled"],
-                        ax=ax,
-                        order=framework_type_order, color=colors[2],
-                        width=0.6, linewidth=linewidth,
-                        err_kws={"color": errcolors[2], "linewidth": err_linewidths['tuned_ensembled'], 'alpha': err_alpha},
-                    ),
+                    # dict(
+                    #     x=pos, y=y,
+                    #     label="Tuned + Ensembled",
+                    #     data=df_plot_w_mean_per_dataset[df_plot_w_mean_per_dataset["tune_method"] == "tuned_ensembled"],
+                    #     ax=ax,
+                    #     order=framework_type_order, color=colors[2],
+                    #     width=0.6, linewidth=linewidth,
+                    #     err_kws={"color": errcolors[2], "linewidth": err_linewidths['tuned_ensembled'], 'alpha': err_alpha},
+                    # ),
                     # dict(
                     #     x=x, y=y,
                     #     label="Default (Holdout)",

@@ -14,16 +14,17 @@ def get_parser():
     parser.add_argument("--num_random_configs", type=int, default=10) # 200 in paper
     parser.add_argument("--num_data", type=int, default=None) 
     parser.add_argument("--subset", type=str, default='all', help="") 
+    parser.add_argument("--problem_type", type=str, default=None, help="") 
     parser.add_argument("--task_ids", type=int, nargs="+", default=None)
 
     return parser
 
-def load_tid():
+def load_tid(name: str = 'tid'):
     file_path = 'data/dataset_list.yaml'
     if os.path.exists(file_path):
         with open(file_path, 'r', encoding='utf-8') as f:
             config = yaml.safe_load(f)
-        tid_list = config.get('tid', [])
+        tid_list = config.get(name, [])
     
     return tid_list
 
@@ -44,14 +45,23 @@ def filter_data(args):
             363625,
             363675,
             363707,
+            363626, # num_features=21 
+            363614, # num_features=39 OOM on 2 GPUs
+            363696, # num_featrues=42 OOM on 2 GPUS
         ]
     if args.subset == 'small-large-features':
         task_ids = [
-            363626,
-            # 363626, # num_features=21 
-            # 363614, # num_features=39 OOM on 2 GPUs
-            # 363696, # num_featrues=42 OOM on 2 GPUS
         ]
+    if args.problem_type is not None:
+        if args.problem_type == 'reg':
+            task_ids = load_tid(name='tid_reg')
+        elif args.problem_type == 'multi':
+            task_ids = load_tid(name='tid_multi')
+        elif args.problem_type == 'binary':
+            task_ids = load_tid(name='tid_binary')
+        else:
+            raise ValueError(f"Unknown problem_type: {args.problem_type}")
+
 
     return task_ids
 

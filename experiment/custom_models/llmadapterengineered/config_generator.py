@@ -15,19 +15,23 @@ def get_experiment_configs(num_random_configs: int, exp_name: str):
             "lora_dropout": 0.1,
             "batch_size": 256,
             "weight_decay": 1e-5,
+            "tune_mlp": True if "tune_mlp" in exp_name else False,
+            "project_name": f"LLMAdapterEngineered_{exp_name}", # for wandb
         },
     ]
 
     search_space = {
         "token_dim": Categorical(16, 32, 64),
         "lr": Real(1e-4, 5e-2, log=True), 
-        "lora_lr": Real(1e-5, 1e-2, log=True), 
+        "lora_lr": Real(1e-5, 1e-3, log=True), 
         "lora_rank": Categorical(4, 8, 16, 32),
         "lora_alpha": Categorical(16, 32, 64),
         "lora_dropout": Categorical(0.0, 0.05, 0.1, 0.2),
         # "weight_decay": Real(1e-6, 1e-3, log=True),
         "mlp_ratio": Categorical(0.25, 0.5, 1.0),
         "batch_size": Categorical(128, 256, 512),
+        "tune_mlp": Categorical(True if "tune_mlp" in exp_name else False),
+        "project_name": f"LLMAdapterEngineered_{exp_name}", # for wandb
     }
 
     gen = ConfigGenerator(

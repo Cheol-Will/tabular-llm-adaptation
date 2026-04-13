@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import re
 import time
 from contextlib import contextmanager
 
@@ -70,12 +71,14 @@ class LLMAdapterEngineeredModel(AbstractModel):
             X_val = self.preprocess(X_val)
 
         cat_cols = X.select_dtypes(include='category').columns.tolist()
-
+        # print(self.name)
+        # print(re.sub(r'_(c|r)\d+.*$', '', self.name))
         self.model = LLMAdapterEngineeredImplementation(
             early_stopping_metric=self.stopping_metric,
             device=device,
             problem_type=self.problem_type,
             n_threads=num_cpus,
+            model_ag_name=re.sub(r'_(c|r)\d+.*$', '', self.name),
             **hyp
         )
 

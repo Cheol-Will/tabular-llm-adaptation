@@ -14,6 +14,8 @@ def get_experiment_configs(num_random_configs: int, exp_name: str):
             "lora_dropout": 0.1,
             "batch_size": 256,
             "weight_decay": 1e-5,
+            "project_name": f"LLMAdapter_{exp_name}", # for wandb
+            "mlp_fine_tune": True if "mlp_fine_tune" in exp_name else False,
         },
     ]
 
@@ -26,8 +28,9 @@ def get_experiment_configs(num_random_configs: int, exp_name: str):
         "lora_dropout": Real(0.0, 0.2),
         "weight_decay": Real(1e-6, 1e-3, log=True),
         "mlp_ratio": Categorical(0.25, 0.5, 1.0),
-        # "batch_size": Categorical(256, 512, 1024),
         "batch_size": Categorical(128, 256, 512),
+        "mlp_fine_tune": Categorical(True if "mlp_fine_tune" in exp_name else False),
+        "project_name": f"LLMAdapter_{exp_name}", # for wandb
     }
 
     gen = ConfigGenerator(

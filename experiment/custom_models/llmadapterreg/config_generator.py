@@ -15,6 +15,8 @@ def get_experiment_configs(num_random_configs: int, exp_name: str):
             "lora_dropout": 0.1,
             "batch_size": 256,
             "weight_decay": 1e-5,
+            "tune_mlp": True if "tune_mlp" in exp_name else False,
+            "project_name": f"LLMAdapterReg_{exp_name}",
         },
     ]
 
@@ -28,14 +30,16 @@ def get_experiment_configs(num_random_configs: int, exp_name: str):
         # "weight_decay": Real(1e-6, 1e-3, log=True),
         "batch_size": Categorical(128, 256, 512),
         "mlp_ratio": Categorical(0.25, 0.5, 1.0),
-        "num_buckets": Categorical(64, 128),
+        "num_buckets": Categorical(32, 64, 128),
+        "tune_mlp": Categorical(True if "tune_mlp" in exp_name else False),
+        "project_name": f"LLMAdapterReg_{exp_name}",
     }
 
     gen = ConfigGenerator(
         model_cls=LLMAdapterRegModel,
         manual_configs=manual_configs,
         search_space=search_space,
-        name=f"LLMAdapterReg_{exp_name}",
+        # name=f"LLMAdapterReg_{exp_name}",
     )
     return gen.generate_all_bag_experiments(
         num_random_configs=num_random_configs,

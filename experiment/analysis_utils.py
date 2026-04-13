@@ -14,18 +14,10 @@ import pandas as pd
 from tabarena.utils.pickle_utils import fetch_all_pickles
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Constants
-# ─────────────────────────────────────────────────────────────────────────────
-
 EXCLUDE_KEYS = {"ag_args_ensemble", "ag_args_fit", "gpu_ids"}
 CONTINUOUS_HPS = {"dropout", "lora_dropout", "lora_lr", "lr", "weight_decay"}
-DISCRETE_HPS = {"batch_size", "lora_rank", "lora_alpha", "token_dim"}
+DISCRETE_HPS = {"batch_size", "lora_rank", "lora_alpha", "token_dim", "num_buckets"}
 
-
-# ─────────────────────────────────────────────────────────────────────────────
-# File I/O
-# ─────────────────────────────────────────────────────────────────────────────
 
 def load_pickle(path: Path) -> dict:
     """Load a pickle file."""
@@ -40,9 +32,6 @@ def fetch_result_files(base_dir: Path, suffix: str = "results.pkl") -> list[Path
     return fetch_all_pickles(dir_path=str(base_dir), suffix=suffix)
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Data Processing
-# ─────────────────────────────────────────────────────────────────────────────
 
 def extract_flat_hps(hp_dict: dict) -> dict:
     """
@@ -112,9 +101,6 @@ def get_best_per_dataset(df: pd.DataFrame, metric_col: str = "metric_error") -> 
     return best
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Formatting
-# ─────────────────────────────────────────────────────────────────────────────
 
 def format_value(v: float) -> str:
     """
@@ -138,10 +124,6 @@ def format_value(v: float) -> str:
     else:
         return f"{v:.2e}"
 
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Visualization Functions
-# ─────────────────────────────────────────────────────────────────────────────
 
 def plot_hp_distributions(
     best: pd.DataFrame,
@@ -196,6 +178,7 @@ def plot_hp_distributions(
         best_vals = best[hp].dropna().astype(float)
 
         # Decide if discrete or continuous
+        print(f"Plotting {hp}")
         if hp in DISCRETE_HPS or (hp not in CONTINUOUS_HPS and best_vals.nunique() <= 8):
             # Bar chart for discrete HPs
             counts = best_vals.value_counts().sort_index()
@@ -217,6 +200,9 @@ def plot_hp_distributions(
                 ys = kde(xs_log)
                 ax.set_xscale("log")
             else:
+                
+                if len(best_vals) == 1:
+                    continue
                 std = best_vals.std()
                 bw = 0.4 if std == 0 else min(0.6, (best_vals.max() - best_vals.min()) * 0.2 / std)
                 kde = gaussian_kde(best_vals, bw_method=bw)
@@ -254,9 +240,6 @@ def plot_hp_distributions(
     print(f"  [SAVED] HP distribution plot: {out_path}")
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Analysis Functions
-# ─────────────────────────────────────────────────────────────────────────────
 
 def analyze_hpo(
     model: str,
@@ -392,10 +375,14 @@ def analyze_reg_dist(
         else:
             y_pred = np.asarray(pred_raw).ravel()
 
+        y_val = np.asarray(sim["y_val"]).ravel() if "y_val" in sim else None
+
         if config_name not in config_data:
-            config_data[config_name] = {"y_test": [], "y_pred": []}
+            config_data[config_name] = {"y_test": [], "y_pred": [], "y_val": []}
         config_data[config_name]["y_test"].append(y_test)
         config_data[config_name]["y_pred"].append(y_pred)
+        if y_val is not None:
+            config_data[config_name]["y_val"].append(y_val)
         print(f"  [OK] {config_name} / {fold_name}: n={len(y_test)}")
 
     if not config_data:
@@ -405,26 +392,34 @@ def analyze_reg_dist(
     config_names = sorted(config_data.keys())
     config_y_test = [np.concatenate(config_data[c]["y_test"]) for c in config_names]
     config_y_pred = [np.concatenate(config_data[c]["y_pred"]) for c in config_names]
+    config_y_val = [
+        np.concatenate(config_data[c]["y_val"]) if config_data[c]["y_val"] else None
+        for c in config_names
+    ]
 
     # At most 10 configs, laid out as 2 columns x 5 rows
     config_names = config_names[:10]
     config_y_test = config_y_test[:10]
     config_y_pred = config_y_pred[:10]
+    config_y_val = config_y_val[:10]
 
     n_cols = 5
     n_rows = 2
     fig, axes = plt.subplots(n_rows, n_cols, figsize=(5 * n_cols, 4 * n_rows))
 
-    for i, (name, y_true, y_pred) in enumerate(zip(config_names, config_y_test, config_y_pred)):
+    for i, (name, y_true, y_pred, y_val) in enumerate(zip(config_names, config_y_test, config_y_pred, config_y_val)):
         row, col = divmod(i, n_cols)
         ax = axes[row, col]
         bins = 40
-        ax.hist(y_true, bins=bins, alpha=0.6, label="y_test", color="steelblue")
-        ax.hist(y_pred, bins=bins, alpha=0.6, label="y_pred", color="tomato")
+        ax.hist(y_true, bins=bins, alpha=0.6, label="y_test", color="steelblue", density=True)
+        ax.hist(y_pred, bins=bins, alpha=0.6, label="y_pred", color="tomato", density=True)
+        if y_val is not None:
+            ax.hist(y_val, bins=bins, alpha=0.6, label="y_val", color="mediumseagreen", density=True)
         n_folds = len(config_data[name]["y_test"])
         ax.set_title(f"{name} ({n_folds} fold(s))")
         ax.set_xlabel("Value")
-        ax.set_ylabel("Count")
+        ax.set_ylabel("Density")
+        ax.set_yticks([])
         ax.legend()
 
     # Hide any unused subplots

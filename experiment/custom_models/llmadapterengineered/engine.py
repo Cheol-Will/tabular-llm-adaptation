@@ -22,6 +22,9 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import RobustScaler
 from tqdm.auto import tqdm
 
+import wandb
+from dotenv import load_dotenv
+
 from autogluon.core.metrics import compute_metric
 from peft import LoraConfig, get_peft_model
 
@@ -71,7 +74,7 @@ def _evaluate_worker(
         y_pred_proba = None
     else:
         y_true = y_tensor.numpy().astype(np.int64)
-        y_pred_proba = torch.softmax(output.float(), dim=-1).numpy()
+        y_pred_proba = torch.softmax(output.double(), dim=-1).numpy()
         y_pred = y_pred_proba.argmax(axis=1)
         if task_type == "binclass":
             y_pred_proba = y_pred_proba[:, 1]
@@ -107,6 +110,9 @@ def _ddp_worker(
     start_time: float,
     time_to_fit_in_seconds: float | None,
     master_port: int,
+    use_wandb: bool = False,
+    task_id: int = 0,
+    project_name: str = 'llmadapterengineered',
 ):
     device = torch.device(f"cuda:{gpu_ids[rank]}")
     torch.cuda.set_device(device)
@@ -126,12 +132,18 @@ def _ddp_worker(
         num_embedding_type=config.get("num_embedding_type", "plr"),
         token_dim=config.get("token_dim", 16),
         num_classes=n_classes,
+        mlp_ratio=config.get("mlp_ratio", 1.0),
     ).to(device)
+
+    if config.get("tune_mlp", False):
+        target_modules = ["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"]
+    else:
+        target_modules = ["q_proj", "k_proj", "v_proj", "o_proj"]
 
     lora_config = LoraConfig(
         r=config.get("lora_rank", 8),
         lora_alpha=config.get("lora_alpha", 32),
-        target_modules=["q_proj", "k_proj", "v_proj", "o_proj"],
+        target_modules=target_modules,
         lora_dropout=config.get("lora_dropout", 0.1),
         bias="none",
     )
@@ -168,6 +180,29 @@ def _ddp_worker(
     remaining_patience = patience
     best_val_score = -np.inf
     best_state: dict | None = None
+
+    if rank == 0 and use_wandb:
+        wandb.init(
+            project=f"{project_name}-tabarena",
+            name=f"task_{task_id}_{project_name}",
+            group=str(task_id),
+            config={
+                "task_id": task_id,
+                "model_name": config.get("model_name", "Qwen/Qwen2.5-0.5B"),
+                "task_type": task_type,
+                "token_dim": config.get("token_dim", 16),
+                "lora_rank": config.get("lora_rank", 8),
+                "lora_alpha": config.get("lora_alpha", 32),
+                "lr": config.get("lr", 1e-3),
+                "lora_lr": config.get("lora_lr", 1e-4),
+                "batch_size": config.get("batch_size", 128),
+                "weight_decay": config.get("weight_decay", 1e-5),
+                "num_epochs": config.get("num_epochs", 200),
+                "patience": config.get("patience", 16),
+            },
+            reinit="finish_previous",
+            settings=wandb.Settings(silent=True),
+        )
 
     # Epoch-0 baseline (rank 0 only; result broadcast to sync all ranks)
     if rank == 0:
@@ -215,14 +250,28 @@ def _ddp_worker(
                 task_type, y_mean, y_std, early_stopping_metric, device,
                 eval_batch_size=config.get("eval_batch_size", 4096),
             )
+            train_score = _evaluate_worker(
+                model.module, X_train_num, X_train_cat, y_train_tensor,
+                task_type, y_mean, y_std, early_stopping_metric, device,
+                eval_batch_size=config.get("eval_batch_size", 4096),
+            )
             avg_loss = train_loss / len(train_loader)
             if isinstance(epoch_iter, tqdm):
                 epoch_iter.set_postfix({
                     "train_loss": f"{avg_loss:.4f}",
+                    "train": f"{train_score:.4f}",
                     "val": f"{val_score:.4f}",
                     "best": f"{best_val_score:.4f}",
                 })
-            logger.info(f"Epoch {epoch:03d}: Val Score = {val_score:.4f} (Best: {best_val_score:.4f})")
+            logger.info(f"Epoch {epoch:03d}: Train Score = {train_score:.4f} | Val Score = {val_score:.4f} (Best: {best_val_score:.4f})")
+            if use_wandb:
+                wandb.log({
+                    "epoch": epoch,
+                    "train_loss": avg_loss,
+                    "train_score": train_score,
+                    "val_score": val_score,
+                    "best_val_score": best_val_score,
+                })
 
         score_buf = torch.tensor([val_score], device=device)
         dist.broadcast(score_buf, src=0)
@@ -233,6 +282,9 @@ def _ddp_worker(
             remaining_patience = patience
             if rank == 0:
                 best_state = {k: v.cpu().clone() for k, v in model.module.state_dict().items()}
+                if use_wandb:
+                    wandb.run.summary["best_val_score"] = best_val_score
+                    wandb.run.summary["best_epoch"] = epoch
         else:
             remaining_patience -= 1
 
@@ -245,8 +297,11 @@ def _ddp_worker(
             logger.info(f"Early stopping at epoch {epoch}.")
             break
 
-    if rank == 0 and best_state is not None:
-        torch.save(best_state, model_save_path)
+    if rank == 0:
+        if best_state is not None:
+            torch.save(best_state, model_save_path)
+        if use_wandb:
+            wandb.finish()
 
     dist.barrier()
     dist.destroy_process_group()
@@ -270,6 +325,11 @@ class LLMAdapterEngineeredImplementation:
         self.y_std_: float = 1.0
         self.y_min_: float = -np.inf
         self.y_max_: float = np.inf
+
+        load_dotenv()
+        self.use_wandb = bool(os.getenv("WANDB_API_KEY"))
+        if self.use_wandb:
+            print("✅ WandB API Key loaded from .env")
 
     def _check_is_fitted(self):
         if self.model is None:
@@ -357,7 +417,8 @@ class LLMAdapterEngineeredImplementation:
             self.y_mean_ = float(y_train_tensor.mean().item())
             self.y_std_ = float(y_train_tensor.std().item())
             y_train_tensor = (y_train_tensor - self.y_mean_) / self.y_std_
-            
+            y_val_tensor = (y_val_tensor - self.y_mean_) / self.y_std_
+
             # save min, max observed during training
             self.y_min_ = float(y_train_tensor.min().item())
             self.y_max_ = float(y_train_tensor.max().item())
@@ -378,6 +439,10 @@ class LLMAdapterEngineeredImplementation:
         with tempfile.NamedTemporaryFile(suffix=".pt", delete=False) as f:
             model_save_path = f.name
 
+        task_id = self.config.get("task_id") or int(os.getenv("CURRENT_TASK_ID", "0"))
+        project_name = self.config.get("project_name", "llmadapterengineered")
+        print(project_name)
+
         mp.spawn(
             _ddp_worker,
             args=(
@@ -387,16 +452,21 @@ class LLMAdapterEngineeredImplementation:
                 X_val_num, X_val_cat, y_val_tensor,
                 self.early_stopping_metric, model_save_path,
                 start_time, time_to_fit_in_seconds, master_port,
+                self.use_wandb, task_id, project_name,
             ),
             nprocs=world_size,
             join=True,
         )
 
         # Load the best model on the primary GPU for inference
+        if self.config.get("tune_mlp", False):
+            _target_modules = ["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"]
+        else:
+            _target_modules = ["q_proj", "k_proj", "v_proj", "o_proj"]
         lora_config = LoraConfig(
             r=self.config.get("lora_rank", 8),
             lora_alpha=self.config.get("lora_alpha", 32),
-            target_modules=["q_proj", "k_proj", "v_proj", "o_proj"],
+            target_modules=_target_modules,
             lora_dropout=self.config.get("lora_dropout", 0.1),
             bias="none",
         )
@@ -407,6 +477,7 @@ class LLMAdapterEngineeredImplementation:
             num_embedding_type=self.config.get("num_embedding_type", "plr"),
             token_dim=self.config.get("token_dim", 16),
             num_classes=self.n_classes_,
+            mlp_ratio=self.config.get("mlp_ratio", 1.0),
         ).to(self.device_)
         self.model = get_peft_model(self.model, lora_config)
         if os.path.exists(model_save_path):

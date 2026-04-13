@@ -1,20 +1,38 @@
 # model="FTTransformer"
 # model="LLMBaseline"
+
 # model="TFMLLM"
+num_random_configs=20 # for fast experiment
+# exp_name="260403-mlp_ratio-mlp_fine_tune"
+# python experiment/main.py \
+#     --model $model \
+#     --exp_name $exp_name \
+#     --num_random_configs $num_random_configs \
+#     --problem_type "reg"
+#     # --problem_type "binary"
+#     # --problem_type "multi"
 
-model="LLMBaseline"
-# model_cls_name="LLMBaseline"
-# model_cls_name="LLMBaselinePooling"
-# model_cls_name="LLMBaselineBidirectional"
-exp_name="260326"
-num_random_configs=10 # for fast experiment
 
-model_cls_name="LLMBaselineBidirectionalPooling"
+# exp_name="260402-mlp_ratio"
+exp_name="260402-mlp_ratio-tune_mlp"
+model="LLMAdapterEngineered"
 python experiment/main.py \
     --model $model \
     --exp_name $exp_name \
-    --model_cls_name $model_cls_name \
-    --subset "small"
+    --num_random_configs $num_random_configs \
+    --problem_type "reg"
+    # --problem_type "multi"
+
+
+# num_random_configs=20 # for fast experiment
+# exp_name="260402-mlp_ratio-tune_mlp"
+# model="LLMAdapterReg"
+# python experiment/main.py \
+#     --model $model \
+#     --exp_name $exp_name \
+#     --num_random_configs $num_random_configs \
+    # --problem_type "reg"
+
 
 # model_cls_name="LLMBaselineBidirectional"
 # python experiment/main.py \

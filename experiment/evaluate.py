@@ -13,11 +13,15 @@ from utils_analysis import pivot_main_table, save_latex
 
 
 def generate_cache(args):
+    # From the specified path, generate cache.
     path = Path(__file__).parent / "results" / args.exp_name / args.model  
     end_to_end = EndToEnd.from_path_raw(
         path_raw=path,
         cache=True,
         cache_raw=True,
+        artifact_name=args.exp_name,
+        name_suffix=args.exp_name,
+        # name_prefix=args.exp_name,
     )
 
 
@@ -91,11 +95,16 @@ def summary_evaluate(args):
     os.makedirs(eval_dir, exist_ok=True)
 
     methods = [
-        "FTTransformer", 
+        "FTTransformer",
         "LLMBaseline",
         "LLMBaselineBidirectional",
         "LLMBaselineBidirectionalPooling",
-        "TFMLLM"
+        "TFMLLM",
+        ("LLMAdapterEngineered260331-engineering", "260331-engineering"),
+        ("LLMAdapterEngineered260401-engineering", "260401-engineering"),
+        ("LLMAdapterEngineered260401-2-engineering", "260401-2-engineering"),
+        ("LLMAdapterReg260401-2-engineering", "260401-2-engineering"),
+        ("LLMAdapterReg260402-mlp_ratio-tune_mlp", "260402-mlp_ratio-tune_mlp"),
     ]
 
     end_to_end = EndToEnd.from_cache(
