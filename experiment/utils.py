@@ -84,6 +84,5 @@ def get_model_experiments(
         else:
             return get_configs_func(num_random_configs, exp_name)
 
-
     except (ImportError, AttributeError) as e:
         raise ValueError(f"Could not find configuration generator for model '{model}': {e}")
