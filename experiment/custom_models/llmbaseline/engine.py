@@ -15,7 +15,7 @@ import torch.nn as nn
 import torch.distributed as dist
 import torch.multiprocessing as mp
 from torch.nn.parallel import DistributedDataParallel as DDP
-from torch.utils.data import DataLoader, DistributedSampler
+from torch.utils.data import Dataset, DataLoader, DistributedSampler
 from tqdm.auto import tqdm
 
 import wandb
@@ -24,13 +24,14 @@ from transformers import AutoTokenizer
 from autogluon.core.metrics import compute_metric
 from peft import LoraConfig, get_peft_model
 
-from .model import (
-    LLMBaseline,
-    LLMBaselineBidirectional,
-    LLMBaselineBidirectionalPooling,
-    LLMBaselinePooling
+from .model import LLMBaseline
+from .model_2 import LLMColumnSpecificToken
+
+from dataset.dataloader import (
+    serialize_data, 
+    TextLabelDataset,
+    TextLabelColumnTokenDataset,
 )
-from dataset.dataloader import serialize_data, TextLabelDataset
 
 if TYPE_CHECKING:
     from autogluon.core.metrics import Scorer
@@ -101,8 +102,8 @@ def _ddp_worker(
     label_texts: list[str] | None,
     y_mean: float,
     y_std: float,
-    train_dataset: TextLabelDataset,
-    val_dataset: TextLabelDataset,
+    train_dataset: Dataset,
+    val_dataset: Dataset,
     early_stopping_metric,
     model_save_path: str,
     start_time: float,
@@ -110,6 +111,7 @@ def _ddp_worker(
     master_port: int,
     task_id: int,
     use_wandb: bool,
+    num_columns: int,
     project_name: str = 'llmbaseline',
     model_cls: nn.Module = LLMBaseline,
 ):
@@ -129,9 +131,11 @@ def _ddp_worker(
     # Build model
     model = model_cls(
         model_name=model_name,
+        num_columns=num_columns,
         num_classes=n_classes,
         task_type=task_type,
         label_token_ids=label_token_ids,
+        mlp_ratio=config.get('mlp_ratio', 1.0),
     ).to(device)
 
     lora_config = LoraConfig(
@@ -297,6 +301,12 @@ class LLMBaselineImplementation:
         self.model_cls = model_cls
         self.tokenizer = None
 
+        if issubclass(model_cls, LLMColumnSpecificToken):
+            self.dataset_cls = TextLabelColumnTokenDataset
+        else:
+            self.dataset_cls = TextLabelDataset
+
+
         self.task_type_: TaskType | None = None
         self.device_: torch.device | None = None
         self.n_classes_: int | None = None
@@ -323,7 +333,7 @@ class LLMBaselineImplementation:
         return label_texts, label_token_ids
 
     def _make_loader(self, X: pd.DataFrame, y: pd.Series | None, shuffle: bool) -> DataLoader:
-        target_name = y.name if y is not None else "target"
+        target_name = self.target_name
         texts = serialize_data(X, target_name)
 
         labels = None
@@ -333,8 +343,9 @@ class LLMBaselineImplementation:
             else:
                 labels = [self.label_texts_.index(str(v)) for v in y.tolist()]
 
-        dataset = TextLabelDataset(
-            texts=texts,
+        dataset = self.dataset_cls(
+            X=X,
+            y=y,
             tokenizer=self.tokenizer,
             task_type=self.task_type_,
             labels=labels,
@@ -342,6 +353,7 @@ class LLMBaselineImplementation:
             max_length=self.config.get("max_length", 128),
             y_mean=self.y_mean_,
             y_std=self.y_std_,
+            target_name=target_name,
         )
         batch_size = (
             self.config.get("batch_size", 64)
@@ -374,16 +386,15 @@ class LLMBaselineImplementation:
             torch.manual_seed(random_state)
             np.random.seed(random_state)
 
+        self.target_name = y_train.name 
         problem_type = self.config["problem_type"]
         self.task_type_ = "binclass" if problem_type == "binary" else problem_type
         model_name = self.config.get("model_name", "Qwen/Qwen2.5-0.5B")
         is_regression = self.task_type_ == "regression"
+        num_columns = X_train.shape[1]
 
         # Tokenizer (main process; workers reconstruct from model_name)
-        self.tokenizer = AutoTokenizer.from_pretrained(model_name)
-        if self.tokenizer.pad_token is None:
-            self.tokenizer.pad_token = self.tokenizer.eos_token
-        self.tokenizer.padding_side = "left"
+        self.tokenizer = AutoTokenizer.from_pretrained(model_name, padding_side="left")
 
         # Labels
         if is_regression:
@@ -395,7 +406,6 @@ class LLMBaselineImplementation:
             self.label_texts_, self.label_token_ids_ = self._get_label_token_ids(unique_labels)
             self.n_classes_ = len(unique_labels)
 
-        # Pre-tokenize datasets in main process (TextLabelDataset stores only tensors → picklable)
         max_length = self.config.get("max_length", 128)
         train_labels = (
             y_train.tolist() if is_regression
@@ -405,17 +415,19 @@ class LLMBaselineImplementation:
             y_val.tolist() if is_regression
             else [self.label_texts_.index(str(v)) for v in y_val.tolist()]
         )
-        train_dataset = TextLabelDataset(
-            texts=serialize_data(X_train, y_train.name),
+        train_dataset = self.dataset_cls(
+            X=X_train, y=y_train,
             tokenizer=self.tokenizer, task_type=self.task_type_,
             labels=train_labels, label_token_ids=self.label_token_ids_,
             max_length=max_length, y_mean=self.y_mean_, y_std=self.y_std_,
+            target_name=self.target_name,
         )
-        val_dataset = TextLabelDataset(
-            texts=serialize_data(X_val, y_val.name),
+        val_dataset = self.dataset_cls(
+            X=X_val, y=y_val,
             tokenizer=self.tokenizer, task_type=self.task_type_,
             labels=val_labels, label_token_ids=self.label_token_ids_,
             max_length=max_length, y_mean=self.y_mean_, y_std=self.y_std_,
+            target_name=self.target_name,
         )
 
         # Spawn DDP workers
@@ -431,7 +443,7 @@ class LLMBaselineImplementation:
                 self.label_token_ids_, self.label_texts_, self.y_mean_, self.y_std_,
                 train_dataset, val_dataset, self.early_stopping_metric,
                 model_save_path, start_time, time_to_fit_in_seconds,
-                master_port, task_id, self.use_wandb, self.model_cls.__name__, self.model_cls
+                master_port, task_id, self.use_wandb, num_columns, self.model_cls.__name__, self.model_cls
             ),
             nprocs=world_size,
             join=True,
@@ -447,6 +459,7 @@ class LLMBaselineImplementation:
         )
         self.model = self.model_cls(
             model_name=model_name,
+            num_columns=num_columns,
             num_classes=self.n_classes_,
             task_type=self.task_type_,
             label_token_ids=self.label_token_ids_,

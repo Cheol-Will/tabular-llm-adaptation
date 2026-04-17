@@ -5,6 +5,7 @@ from .wrapper import (
     LLMBaselineBidirectionalModel,
     LLMBaselinePoolingModel,
     LLMBaselineBidirectionalPoolingModel,
+    LLMColumnSpecificTokenModel,
 )
 
 
@@ -13,6 +14,7 @@ _MODEL_CLS_MAP = {
     "LLMBaselineBidirectional": LLMBaselineBidirectionalModel,
     "LLMBaselinePooling": LLMBaselinePoolingModel,
     "LLMBaselineBidirectionalPooling": LLMBaselineBidirectionalPoolingModel,
+    "LLMColumnSpecificToken": LLMColumnSpecificTokenModel,
 }
 
 
