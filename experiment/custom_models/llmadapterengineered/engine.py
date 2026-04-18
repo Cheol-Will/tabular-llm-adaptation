@@ -152,7 +152,6 @@ def _ddp_worker(
         model.print_trainable_parameters()
 
     model = DDP(model, device_ids=[gpu_ids[rank]])
-
     base = model.module.base_model.model
 
     train_dataset = TensorDataset(X_train_num, X_train_cat, y_train_tensor)

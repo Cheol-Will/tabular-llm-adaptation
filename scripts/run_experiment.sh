@@ -2,7 +2,6 @@
 # model="LLMBaseline"
 
 # model="TFMLLM"
-num_random_configs=20 # for fast experiment
 # exp_name="260403-mlp_ratio-mlp_fine_tune"
 # python experiment/main.py \
 #     --model $model \
@@ -12,15 +11,34 @@ num_random_configs=20 # for fast experiment
 #     # --problem_type "binary"
 #     # --problem_type "multi"
 
-
-# exp_name="260402-mlp_ratio"
-exp_name="260402-mlp_ratio-tune_mlp"
-model="LLMAdapterEngineered"
+exp_name="260417-LLMCT"
+model="LLMBaseline"
+model_cls_name="LLMColumnSpecificToken"
+num_random_configs=1 # for fast experiment
 python experiment/main.py \
     --model $model \
+    --model_cls_name $model_cls_name \
     --exp_name $exp_name \
     --num_random_configs $num_random_configs \
-    --problem_type "reg"
+    --problem_type "binary"
+    # --problem_type "reg"
+
+# exp_name="260413-LLMCT"
+# model="LLMColumnSpecificToken"
+# python experiment/main.py \
+#     --model $model \
+#     --exp_name $exp_name \
+#     --num_random_configs $num_random_configs \
+#     --problem_type "multi"
+
+# exp_name="260402-mlp_ratio"
+# exp_name="260402-mlp_ratio-tune_mlp"
+# model="LLMAdapterEngineered"
+# python experiment/main.py \
+#     --model $model \
+#     --exp_name $exp_name \
+#     --num_random_configs $num_random_configs \
+#     --problem_type "reg"
     # --problem_type "multi"
 
 

@@ -19,15 +19,6 @@ def serialize_data(X: pd.DataFrame, target_name: str) -> list[str]:
 def get_column_mask(tokenizer, row, max_length: int | None = None):
     """
     Build a column-index mask aligned to the joint tokenization of the full row.
-
-    Tokenizes the full serialized row once (no special tokens except BOS at the
-    very start), then tokenizes each "col: val, " segment without special tokens
-    to measure its token span.  This avoids the per-column BOS tokens that caused
-    length mismatches in the previous approach.
-
-    Returns a 1-D LongTensor of length ≤ max_length (if given) where each entry
-    is the 0-based column index that owns that token position.  Tokens belonging
-    to the trailing ", {target} is" part get index (num_columns).
     """
     items = list(row.items())
     segments = []
@@ -78,6 +69,7 @@ class TextLabelDataset(Dataset):
         max_length: int = 256,
         y_mean: float = 0.0,
         y_std: float = 1.0,
+        use_pred_token: bool = False,
     ):
         self.task_type = task_type
         self.has_label = labels is not None
@@ -133,6 +125,7 @@ class TextLabelColumnTokenDataset(Dataset):
         y_mean: float = 0.0,
         y_std: float = 1.0,
         target_name: str = None,
+        use_pred_token: bool = False,
     ):
         self.task_type = task_type
         self.has_label = labels is not None
@@ -149,8 +142,9 @@ class TextLabelColumnTokenDataset(Dataset):
 
         self.input_ids = encodings["input_ids"]
         self.attention_mask = encodings["attention_mask"]
-        self.column_mask = self._make_column_mask(X, encodings, tokenizer)  # (N, S)
-        self.attention_mask_4d = self._make_attention_mask(self.input_ids, self.column_mask)  # (N, 1, S+C, S+C)
+        
+        column_mask = self._make_column_mask(X, encodings, tokenizer)  # (N, S)
+        self.attention_mask_4d = self._make_attention_mask(self.input_ids, column_mask, use_pred_token)  # (N, 1, S+C, S+C)
 
         if self.has_label:
             if task_type == "regression":
@@ -175,7 +169,7 @@ class TextLabelColumnTokenDataset(Dataset):
 
     def _make_column_mask(self, X, encodings, tokenizer):
         """
-        NOTE: we use left padding for tokenizer.
+        Mask to represent 
         """
         column_mask_list = []
         for tensor_idx, (_, row) in enumerate(X.iterrows()):
@@ -189,7 +183,7 @@ class TextLabelColumnTokenDataset(Dataset):
             column_mask = attn_mask.clone().detach()
             column_mask[pad_mask] = -1  # left padding
             column_mask[num_pad:num_pad + column_mask_.shape[0]] = column_mask_
-            # Remaining tokens (truncated tail / ", target is") get index = num_columns
+            # Remaining tokens (", target is") get index = num_columns
             column_mask[num_pad + column_mask_.shape[0]:] = self.num_columns
 
             column_mask_list.append(column_mask)
@@ -202,10 +196,13 @@ class TextLabelColumnTokenDataset(Dataset):
         self,
         input_ids: torch.Tensor,    # (N, S)
         column_mask: torch.Tensor,  # (N, S)
-    ) -> torch.Tensor:              # (N, 1, S+C, S+C)
+        use_pred_token: bool = False,  # add pred token (self attention)
+    ) -> torch.Tensor:
         N, S = input_ids.shape
         C = self.num_columns
-        S_ = S + C
+        S_ = S + C 
+        if use_pred_token:
+            S_ += 1 # for pred token
 
         attention_mask = torch.full((N, 1, S_, S_), float('-inf'), dtype=torch.bfloat16)
 
@@ -215,7 +212,7 @@ class TextLabelColumnTokenDataset(Dataset):
 
         # handle padding tokens
         pad_mask = (column_mask == -1)  # (N, S)
-        attention_mask[:, :, :S_, :S] = attention_mask[:, :, :S_, :S].masked_fill(
+        attention_mask[:, :, :, :S] = attention_mask[:, :, :, :S].masked_fill(
             pad_mask[:, None, None, :], float('-inf')
         )
 
@@ -225,7 +222,7 @@ class TextLabelColumnTokenDataset(Dataset):
             scores = torch.where(col_text_mask, 0.0, float('-inf')).to(torch.bfloat16)
             attention_mask[:, :, S + c, :S] = scores.unsqueeze(1)
 
-        # Full attention in column tokens
+        # Full attention in column tokens (with pred token)
         attention_mask[:, :, S:, S:] = 0.0
 
-        return attention_mask  # (N, 1, S+C, S+C)
+        return attention_mask  # (N, 1, S_, S_)

@@ -5,7 +5,8 @@ from .wrapper import (
     LLMBaselineBidirectionalModel,
     LLMBaselinePoolingModel,
     LLMBaselineBidirectionalPoolingModel,
-    LLMColumnSpecificTokenModel,
+    LLMRead,
+    LLMReadPred,
 )
 
 
@@ -14,7 +15,8 @@ _MODEL_CLS_MAP = {
     "LLMBaselineBidirectional": LLMBaselineBidirectionalModel,
     "LLMBaselinePooling": LLMBaselinePoolingModel,
     "LLMBaselineBidirectionalPooling": LLMBaselineBidirectionalPoolingModel,
-    "LLMColumnSpecificToken": LLMColumnSpecificTokenModel,
+    "LLMRead": LLMRead,
+    "LLMReadPred": LLMReadPred,
 }
 
 
@@ -33,6 +35,7 @@ def get_experiment_configs(
         {
             "model_name": "Qwen/Qwen2.5-0.5B",
             "num_epochs": 100,
+            "lr": 1e-3,
             "lora_lr": 1e-4,
             "lora_rank": 8,
             "lora_alpha": 32,
@@ -46,6 +49,7 @@ def get_experiment_configs(
     ]
 
     search_space = {
+        "lr": Real(1e-4, 1e-2, log=True),
         "lora_lr": Real(1e-5, 1e-3, log=True),
         "lora_rank": Categorical(4, 8, 16, 32),
         "lora_alpha": Categorical(16, 32, 64),
@@ -54,7 +58,6 @@ def get_experiment_configs(
         "weight_decay": Real(1e-6, 1e-3, log=True),
         "max_length": Categorical(128),
     }
-
 
     gen = ConfigGenerator(
         model_cls=model_cls,

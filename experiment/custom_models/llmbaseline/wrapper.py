@@ -16,7 +16,10 @@ from .model import (
     LLMBaselinePooling,
     LLMBaselineBidirectionalPooling,
 )
-from .model_2 import LLMColumnSpecificToken
+from .model_2 import (
+    LLMRead,
+    LLMReadPred,
+)
 
 # Late import of the engine is handled inside _fit to manage dependencies
 logger = logging.getLogger(__name__)
@@ -201,7 +204,12 @@ class LLMBaselineBidirectionalPoolingModel(LLMBaselineModel):
     _model_cls = LLMBaselineBidirectionalPooling
 
 
-class LLMColumnSpecificTokenModel(LLMBaselineModel):
-    ag_key = "LLMColumnSpecificToken"
-    ag_name = "LLMColumnSpecificToken"
-    _model_cls = LLMColumnSpecificToken
+class LLMRead(LLMBaselineModel):
+    ag_key = "LLMRead"
+    ag_name = "LLMRead"
+    _model_cls = LLMRead
+
+class LLMReadPred(LLMBaselineModel):
+    ag_key = "LLMReadPred"
+    ag_name = "LLMReadPred"
+    _model_cls = LLMReadPred

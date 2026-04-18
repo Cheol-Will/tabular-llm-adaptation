@@ -44,7 +44,27 @@ def _find_free_port() -> int:
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.bind(("", 0))
         return s.getsockname()[1]
+    
+def get_optimizer(model, config, ):
+    lr = config.get("lr", 1e-3)
+    lora_lr = config.get("lora_lr", 1e-4)
+    weight_decay = config.get("weight_decay", 1e-5)
+    base = model.module.base_model.model
+    
+    params = [{"params": base.backbone.parameters(), "lr": lora_lr}]
+    if hasattr(base, "output_proj"):
+        params.append({"params": base.output_proj.parameters(), "lr": lr})
+    if hasattr(base, "read_tokens"):
+        params.append({"params": base.read_tokens.parameters(), "lr": lr})
+    if hasattr(base, "pred_token"):
+        params.append({"params": base.pred_token.parameters(), "lr": lr})
 
+    optimizer = torch.optim.AdamW(
+        params,
+        weight_decay=weight_decay,
+    )
+
+    return optimizer
 
 def _evaluate_worker(
     model: nn.Module,
@@ -150,6 +170,7 @@ def _ddp_worker(
         model.print_trainable_parameters()
 
     model = DDP(model, device_ids=[gpu_ids[rank]])
+    base = model.module.base_model.model
 
     # DataLoaders
     train_sampler = DistributedSampler(
@@ -168,11 +189,8 @@ def _ddp_worker(
     )
 
     loss_fn = nn.MSELoss() if is_regression else nn.CrossEntropyLoss()
-    optimizer = torch.optim.AdamW(
-        filter(lambda p: p.requires_grad, model.parameters()),
-        lr=config.get("lora_lr", 1e-4),
-        weight_decay=config.get("weight_decay", 1e-5),
-    )
+    
+    optimizer = get_optimizer()
 
     patience = config.get("patience", 16)
     remaining_patience = patience
@@ -354,6 +372,7 @@ class LLMBaselineImplementation:
             y_mean=self.y_mean_,
             y_std=self.y_std_,
             target_name=target_name,
+            use_pred_token=self.config.get("use_pred_token", False),
         )
         batch_size = (
             self.config.get("batch_size", 64)
