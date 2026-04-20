@@ -4,6 +4,8 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 from dataset.dataloader import serialize_data, get_column_mask
 from run_analysis import load_openml_data
 
+import argparse
+
 # import pandas as pd
 
 # df = pd.read_csv("/home/cheolseok/tabular-prediction/tabarena/tabarena/tabarena/nips2025_utils/metadata/curated_tabarena_dataset_metadata.csv")
@@ -153,8 +155,14 @@ def debug_dataset_attn_mask():
     return
     
 
+
 def main():
-    debug_dataset_attn_mask()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--task_ids", type=int, nargs="+", default=None)
+    args = parser.parse_args()
+    print(args.task_ids)
+    
+    # debug_dataset_attn_mask()
     # get_response()
 
 if __name__ == "__main__":

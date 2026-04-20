@@ -4,13 +4,14 @@
 exp_name="260418-LLMRead"
 model="LLMBaseline"
 model_cls_name="LLMRead"
-num_random_configs=1 # for fast experiment
+num_random_configs=10 # for fast experiment
 python experiment/main.py \
     --model $model \
     --model_cls_name $model_cls_name \
     --exp_name $exp_name \
     --num_random_configs $num_random_configs \
-    --problem_type "binary"
+    --task_ids 363612
+    # --problem_type "binary"
     # --problem_type "reg"
 
 # exp_name="260413-LLMCT"
