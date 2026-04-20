@@ -25,7 +25,7 @@ from autogluon.core.metrics import compute_metric
 from peft import LoraConfig, get_peft_model
 
 from .model import LLMBaseline
-from .model_2 import LLMColumnSpecificToken
+from .model_2 import LLMRead
 
 from dataset.dataloader import (
     serialize_data, 
@@ -319,7 +319,7 @@ class LLMBaselineImplementation:
         self.model_cls = model_cls
         self.tokenizer = None
 
-        if issubclass(model_cls, LLMColumnSpecificToken):
+        if issubclass(model_cls, LLMRead):
             self.dataset_cls = TextLabelColumnTokenDataset
         else:
             self.dataset_cls = TextLabelDataset
