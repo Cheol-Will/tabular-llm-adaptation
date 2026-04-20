@@ -35,8 +35,8 @@ def get_experiment_configs(
         {
             "model_name": "Qwen/Qwen2.5-0.5B",
             "num_epochs": 100,
-            "lr": 1e-2,
-            "lora_lr": 1e-3,
+            "lr": 1e-3,
+            "lora_lr": 1e-4,
             "lora_rank": 8,
             "lora_alpha": 32,
             "lora_dropout": 0.1,

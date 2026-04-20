@@ -257,6 +257,7 @@ def _ddp_worker(
     best_val_score = score_buf.item()
 
     num_epochs = config.get("num_epochs", 100)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=num_epochs)
     epoch_iter = tqdm(range(num_epochs), desc="Training") if rank == 0 else range(num_epochs)
 
     for epoch in epoch_iter:
@@ -321,6 +322,8 @@ def _ddp_worker(
                     wandb.run.summary["best_epoch"] = epoch
         else:
             remaining_patience -= 1
+
+        scheduler.step()
 
         # Broadcast early-stopping decision so all ranks agree
         patience_buf = torch.tensor([remaining_patience], device=device)
