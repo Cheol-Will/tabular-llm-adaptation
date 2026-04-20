@@ -110,8 +110,6 @@ class TextLabelDataset(Dataset):
 class TextLabelColumnTokenDataset(Dataset):
     """
     Serialized dataset with attention mask designed for Column-aware attention.
-    TODO: our tokenizer uses padding=left!
-
     """    
     def __init__(
         self,

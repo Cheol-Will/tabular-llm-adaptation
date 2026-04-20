@@ -25,7 +25,7 @@ from autogluon.core.metrics import compute_metric
 from peft import LoraConfig, get_peft_model
 
 from .model import LLMBaseline
-from .model_2 import LLMRead
+from .model_2 import LLMRead, LLMReadPred
 
 from dataset.dataloader import (
     serialize_data, 
@@ -257,7 +257,17 @@ def _ddp_worker(
     best_val_score = score_buf.item()
 
     num_epochs = config.get("num_epochs", 100)
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=num_epochs)
+    warmup_epochs = config.get("warmup_epochs", 10)
+    warmup_scheduler = torch.optim.lr_scheduler.LinearLR(                                                                                                                                                                    
+        optimizer, start_factor=1e-3, end_factor=1.0, total_iters=warmup_epochs
+    )
+    cosine_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+        optimizer, T_max=num_epochs - warmup_epochs
+    )
+    scheduler = torch.optim.lr_scheduler.SequentialLR(
+        optimizer, schedulers=[warmup_scheduler, cosine_scheduler], milestones=[warmup_epochs]
+    )
+
     epoch_iter = tqdm(range(num_epochs), desc="Training") if rank == 0 else range(num_epochs)
 
     for epoch in epoch_iter:
@@ -293,9 +303,10 @@ def _ddp_worker(
             avg_grad_norm = grad_norm / len(train_loader)
             if isinstance(epoch_iter, tqdm):
                 epoch_iter.set_postfix({
-                    "train_loss": f"{avg_loss:.4f}",
-                    "val": f"{val_score:.4f}",
-                    "best": f"{best_val_score:.4f}",
+                    "loss": f"{avg_loss:.4f}",
+                    "val_score": f"{val_score:.4f}",
+                    "best_best_score": f"{best_val_score:.4f}",
+                    "metric_val": f"{metric_val:.4f}",
                 })
             logger.info(f"Epoch {epoch:03d}: Val Score = {val_score:.4f} (Best: {best_val_score:.4f})")
             if use_wandb:
@@ -355,6 +366,9 @@ class LLMBaselineImplementation:
 
         if issubclass(model_cls, LLMRead):
             self.dataset_cls = TextLabelColumnTokenDataset
+            if issubclass(model_cls, LLMReadPred):
+                self.config["use_pred_token"] = True
+                # print("[Debug] use pred_token.")
         else:
             self.dataset_cls = TextLabelDataset
 
@@ -474,6 +488,7 @@ class LLMBaselineImplementation:
             labels=train_labels, label_token_ids=self.label_token_ids_,
             max_length=max_length, y_mean=self.y_mean_, y_std=self.y_std_,
             target_name=self.target_name,
+            use_pred_token=self.config.get("use_pred_token", False),
         )
         val_dataset = self.dataset_cls(
             X=X_val, y=y_val,
@@ -481,6 +496,7 @@ class LLMBaselineImplementation:
             labels=val_labels, label_token_ids=self.label_token_ids_,
             max_length=max_length, y_mean=self.y_mean_, y_std=self.y_std_,
             target_name=self.target_name,
+            use_pred_token=self.config.get("use_pred_token", False),
         )
 
         # Spawn DDP workers

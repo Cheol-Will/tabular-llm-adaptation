@@ -29,14 +29,14 @@ def get_experiment_configs(
     if model_cls_name not in _MODEL_CLS_MAP:
         raise ValueError(f"Unknown model class: {model_cls_name}")
     model_cls = _MODEL_CLS_MAP[model_cls_name]
-    print(f"Get expeirment configs for {model_cls_name}")
+    print(f"Get experiment configs for {model_cls_name}")
 
     manual_configs = [
         {
             "model_name": "Qwen/Qwen2.5-0.5B",
             "num_epochs": 100,
             "lr": 1e-3,
-            "lora_lr": 1e-4,
+            "lora_lr": 5e-4,
             "lora_rank": 8,
             "lora_alpha": 32,
             "lora_dropout": 0.1,
