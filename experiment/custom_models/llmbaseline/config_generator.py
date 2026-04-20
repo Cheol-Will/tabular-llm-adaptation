@@ -45,6 +45,7 @@ def get_experiment_configs(
             "max_length": 128,
             "weight_decay": 1e-5,
             "patience": 16,
+            "project_name": f"{model_cls_name}_{exp_name}", # for wandb
         },
     ]
 
@@ -57,6 +58,7 @@ def get_experiment_configs(
         "batch_size": Categorical(64, 128),
         "weight_decay": Real(1e-6, 1e-3, log=True),
         "max_length": Categorical(128),
+        "project_name": f"{model_cls_name}_{exp_name}", # for wandb
     }
 
     gen = ConfigGenerator(

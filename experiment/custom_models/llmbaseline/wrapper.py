@@ -55,7 +55,7 @@ class LLMBaselineModel(AbstractModel):
         X_val: pd.DataFrame,
         y_val: pd.Series,
         time_limit: float | None = None,
-        num_cpus: int = 1,
+        num_cpus: int = 4,
         num_gpus: float = 0,
         verbosity: int = 2,
         **kwargs,

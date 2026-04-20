@@ -77,10 +77,6 @@ def _evaluate_worker(
     eval_metric=None,
 ) -> tuple[float, float]:
     """Run evaluation on rank-0 using the unwrapped model (no DDP sync needed).
-
-    Returns (val_score, metric_val) where val_score is used for early stopping
-    and metric_val is the eval_metric score (roc_auc for binary). If eval_metric
-    is None, metric_val equals val_score.
     """
     model.eval()
     all_outputs, all_labels = [], []
@@ -288,7 +284,7 @@ def _ddp_worker(
             output = model(input_ids, attention_mask).float()
             loss = loss_fn(output, batch_y)
             loss.backward()
-            grad_norm += torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=float("inf")).item()
+            grad_norm += torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0).item()
             optimizer.step()
             train_loss += loss.item()
 
@@ -368,7 +364,6 @@ class LLMBaselineImplementation:
             self.dataset_cls = TextLabelColumnTokenDataset
             if issubclass(model_cls, LLMReadPred):
                 self.config["use_pred_token"] = True
-                # print("[Debug] use pred_token.")
         else:
             self.dataset_cls = TextLabelDataset
 
@@ -504,6 +499,7 @@ class LLMBaselineImplementation:
         master_port = _find_free_port()
         with tempfile.NamedTemporaryFile(suffix=".pt", delete=False) as f:
             model_save_path = f.name
+        project_name = self.config.get("project_name", "LLMBaseline")
 
         mp.spawn(
             _ddp_worker,
@@ -512,7 +508,7 @@ class LLMBaselineImplementation:
                 self.label_token_ids_, self.label_texts_, self.y_mean_, self.y_std_,
                 train_dataset, val_dataset, self.early_stopping_metric,
                 model_save_path, start_time, time_to_fit_in_seconds,
-                master_port, task_id, self.use_wandb, num_columns, self.model_cls.__name__, self.model_cls
+                master_port, task_id, self.use_wandb, num_columns, project_name, self.model_cls
             ),
             nprocs=world_size,
             join=True,

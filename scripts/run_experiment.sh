@@ -1,8 +1,9 @@
 # model="FTTransformer"
 # model="LLMBaseline"
 
-exp_name="260418-LLMRead"
+exp_name="260420-LLMRead-GradClip"
 model="LLMBaseline"
+# model_cls_name="LLMReadPred"
 model_cls_name="LLMRead"
 num_random_configs=10 # for fast experiment
 python experiment/main.py \
@@ -10,7 +11,8 @@ python experiment/main.py \
     --model_cls_name $model_cls_name \
     --exp_name $exp_name \
     --num_random_configs $num_random_configs \
-    --task_ids 363612
+    --task_ids 363621
+    # --task_ids 363612
     # --problem_type "binary"
     # --problem_type "reg"
 
