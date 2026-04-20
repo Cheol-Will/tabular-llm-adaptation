@@ -460,7 +460,8 @@ def run_experiments_new(
                         # print(f"Running :{tabarena_task_name} with eval metric: {eval_metric_name}")
 
                     try:
-                        
+                        # print(f"Running with method_kwargs: \n{model_experiment.method_kwargs}")
+                        print(f"Running with model_hyperparameters: \n{model_experiment.method_kwargs['model_hyperparameters']}")
                         out = model_experiment.run(
                             task=task,
                             fold=fold,
