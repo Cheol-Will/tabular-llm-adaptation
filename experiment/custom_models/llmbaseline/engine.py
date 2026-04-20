@@ -74,8 +74,14 @@ def _evaluate_worker(
     y_std: float,
     early_stopping_metric,
     device: torch.device,
-) -> float:
-    """Run evaluation on rank-0 using the unwrapped model (no DDP sync needed)."""
+    eval_metric=None,
+) -> tuple[float, float]:
+    """Run evaluation on rank-0 using the unwrapped model (no DDP sync needed).
+
+    Returns (val_score, metric_val) where val_score is used for early stopping
+    and metric_val is the eval_metric score (roc_auc for binary). If eval_metric
+    is None, metric_val equals val_score.
+    """
     model.eval()
     all_outputs, all_labels = [], []
     with torch.no_grad():
@@ -102,13 +108,28 @@ def _evaluate_worker(
         if task_type == "binclass":
             y_pred_proba = y_pred_proba[:, 1]
 
-    return compute_metric(
+    # log_loss or rmse
+    val_score = compute_metric(
         y=y_true,
         metric=early_stopping_metric,
         y_pred=y_pred,
         y_pred_proba=y_pred_proba,
         silent=True,
     )
+
+    if eval_metric is not None:
+        # Compute roc_auc for binary classification.
+        metric_val = compute_metric(
+            y=y_true,
+            metric=eval_metric,
+            y_pred=y_pred,
+            y_pred_proba=y_pred_proba,
+            silent=True,
+        )
+    else:
+        metric_val = val_score
+
+    return val_score, metric_val
 
 
 def _ddp_worker(
@@ -209,6 +230,7 @@ def _ddp_worker(
                 "lora_rank": config.get("lora_rank", 8),
                 "lora_alpha": config.get("lora_alpha", 32),
                 "lora_lr": config.get("lora_lr", 1e-4),
+                "lr": config.get("lr", 1e-3),
                 "batch_size": config.get("batch_size", 64),
                 "max_length": config.get("max_length", 256),
                 "weight_decay": config.get("weight_decay", 1e-5),
@@ -219,9 +241,12 @@ def _ddp_worker(
             settings=wandb.Settings(silent=True),  
         )
 
+    from autogluon.core.metrics import get_metric
+    eval_metric = get_metric("roc_auc", "binary") if task_type == "binclass" else None
+
     # Epoch-0 baseline (rank 0 only; result broadcast to sync all ranks)
     if rank == 0:
-        best_val_score = _evaluate_worker(
+        best_val_score, _ = _evaluate_worker(
             model.module, val_loader, task_type, y_mean, y_std, early_stopping_metric, device
         )
         best_state = {k: v.cpu().clone() for k, v in model.module.state_dict().items()}
@@ -241,6 +266,7 @@ def _ddp_worker(
         train_sampler.set_epoch(epoch)
         model.train()
         train_loss = 0.0
+        grad_norm = 0.0
 
         for batch in train_loader:
             input_ids = batch["input_ids"].to(device)
@@ -251,16 +277,19 @@ def _ddp_worker(
             output = model(input_ids, attention_mask).float()
             loss = loss_fn(output, batch_y)
             loss.backward()
+            grad_norm += torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=float("inf")).item()
             optimizer.step()
             train_loss += loss.item()
 
         # Rank 0 evaluates; rank 1 waits at the broadcast below
         val_score = -np.inf
         if rank == 0:
-            val_score = _evaluate_worker(
-                model.module, val_loader, task_type, y_mean, y_std, early_stopping_metric, device
+            val_score, metric_val = _evaluate_worker(
+                model.module, val_loader, task_type, y_mean, y_std, early_stopping_metric, device,
+                eval_metric=eval_metric,
             )
             avg_loss = train_loss / len(train_loader)
+            avg_grad_norm = grad_norm / len(train_loader)
             if isinstance(epoch_iter, tqdm):
                 epoch_iter.set_postfix({
                     "train_loss": f"{avg_loss:.4f}",
@@ -272,7 +301,9 @@ def _ddp_worker(
                 wandb.log({
                     "epoch": epoch,
                     "train_loss": avg_loss,
+                    "grad_norm": avg_grad_norm,
                     "val_score": val_score,
+                    "metric_val": metric_val,
                     "best_val_score": best_val_score,
                 })
 
