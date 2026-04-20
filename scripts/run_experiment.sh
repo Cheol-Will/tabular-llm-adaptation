@@ -1,19 +1,9 @@
 # model="FTTransformer"
 # model="LLMBaseline"
 
-# model="TFMLLM"
-# exp_name="260403-mlp_ratio-mlp_fine_tune"
-# python experiment/main.py \
-#     --model $model \
-#     --exp_name $exp_name \
-#     --num_random_configs $num_random_configs \
-#     --problem_type "reg"
-#     # --problem_type "binary"
-#     # --problem_type "multi"
-
-exp_name="260417-LLMCT"
+exp_name="260418-LLMRead"
 model="LLMBaseline"
-model_cls_name="LLMColumnSpecificToken"
+model_cls_name="LLMRead"
 num_random_configs=1 # for fast experiment
 python experiment/main.py \
     --model $model \
@@ -59,3 +49,14 @@ python experiment/main.py \
 #     --model_cls_name $model_cls_name \
 #     --subset "small-large-features"
 #     # --subset "small"
+
+
+# model="TFMLLM"
+# exp_name="260403-mlp_ratio-mlp_fine_tune"
+# python experiment/main.py \
+#     --model $model \
+#     --exp_name $exp_name \
+#     --num_random_configs $num_random_configs \
+#     --problem_type "reg"
+#     # --problem_type "binary"
+#     # --problem_type "multi"

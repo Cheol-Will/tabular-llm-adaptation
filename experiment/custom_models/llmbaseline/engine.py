@@ -45,7 +45,7 @@ def _find_free_port() -> int:
         s.bind(("", 0))
         return s.getsockname()[1]
     
-def get_optimizer(model, config, ):
+def get_optimizer(model, config):
     lr = config.get("lr", 1e-3)
     lora_lr = config.get("lora_lr", 1e-4)
     weight_decay = config.get("weight_decay", 1e-5)
@@ -55,9 +55,9 @@ def get_optimizer(model, config, ):
     if hasattr(base, "output_proj"):
         params.append({"params": base.output_proj.parameters(), "lr": lr})
     if hasattr(base, "read_tokens"):
-        params.append({"params": base.read_tokens.parameters(), "lr": lr})
+        params.append({"params": [base.read_tokens], "lr": lr})
     if hasattr(base, "pred_token"):
-        params.append({"params": base.pred_token.parameters(), "lr": lr})
+        params.append({"params": [base.pred_token], "lr": lr})
 
     optimizer = torch.optim.AdamW(
         params,
@@ -190,7 +190,7 @@ def _ddp_worker(
 
     loss_fn = nn.MSELoss() if is_regression else nn.CrossEntropyLoss()
     
-    optimizer = get_optimizer()
+    optimizer = get_optimizer(model, config)
 
     patience = config.get("patience", 16)
     remaining_patience = patience
