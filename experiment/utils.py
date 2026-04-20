@@ -62,6 +62,8 @@ def filter_data(args):
         else:
             raise ValueError(f"Unknown problem_type: {args.problem_type}")
 
+    if args.task_ids is not None:
+        task_ids = args.task_ids
 
     return task_ids
 
