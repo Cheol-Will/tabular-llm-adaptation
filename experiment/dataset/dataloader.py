@@ -3,7 +3,7 @@ import torch
 import numpy as np
 import pandas as pd
 from torch.utils.data import Dataset, DataLoader
-from data_utils.py import serialize_data, get_column_mask
+from dataset.data_utils import serialize_data, get_column_mask
 
 
 class TabularDataset(Dataset):
@@ -24,7 +24,7 @@ class TabularDataset(Dataset):
             self.has_labels = False
 
     def __len__(self):
-        return self.input_ids.shape[0]
+        return self.input_num.shape[0]
 
     def __getitem__(self, idx):
         item = {
@@ -32,7 +32,7 @@ class TabularDataset(Dataset):
             "input_cat": self.input_cat[idx],
         }
         if self.has_labels:
-            item["label"] = self.label[idx],
+            item["label"] = self.label[idx]
 
         return item
 
