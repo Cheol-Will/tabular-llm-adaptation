@@ -16,7 +16,7 @@ import torch.distributed as dist
 import torch.multiprocessing as mp
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data import Dataset, DataLoader, TensorDataset, DistributedSampler
-from experiment.dataset.dataloader import TabularDataset
+from dataset.dataloader import TabularDataset
 from sklearn.impute import SimpleImputer
 from sklearn.pipeline import Pipeline
 from tqdm.auto import tqdm
@@ -68,7 +68,6 @@ def get_optimizer(model, config):
 def _evaluate_worker(
     model: nn.Module,
     val_loader: DataLoader,
-    y_tensor: torch.Tensor,
     task_type: TaskType,
     y_mean: float,
     y_std: float,
@@ -80,7 +79,11 @@ def _evaluate_worker(
     model.eval()
     all_outputs, all_labels = [], []
     with torch.no_grad():
-        for batch_num, batch_cat, batch_y in val_loader:
+        for batch in val_loader:
+            batch_num = batch["input_num"].to(device)
+            batch_cat = batch["input_cat"].to(device)
+            batch_y = batch["label"]
+
             out = model(batch_num.to(device), batch_cat.to(device)).cpu().float()
             all_outputs.append(out)
             all_labels.append(batch_y)
@@ -207,11 +210,13 @@ def _ddp_worker(
     best_val_score = -np.inf
     best_state: dict | None = None
 
+    ag_args = os.getenv("CURRENT_AG_ARGS", "_c1")
+
     if rank == 0 and use_wandb:
         wandb.init(
             project=f"{project_name}-tabarena",
             name=f"task_{task_id}_{project_name}",
-            group=str(task_id),
+            group=f"{task_id}{ag_args}",
             config={
                 "task_id": task_id,
                 "model_name": config.get("model_name", "Qwen/Qwen2.5-0.5B"),
@@ -225,6 +230,7 @@ def _ddp_worker(
                 "weight_decay": config.get("weight_decay", 1e-5),
                 "num_epochs": config.get("num_epochs", 100),
                 "patience": config.get("patience", 16),
+                "ag_args": ag_args,
             },
             reinit="finish_previous",
             settings=wandb.Settings(silent=True),
@@ -247,7 +253,7 @@ def _ddp_worker(
     best_val_score = score_buf.item()
 
     num_epochs = config.get("num_epochs", 100)
-    warmup_epochs = config.get("num_epochs", 10)
+    warmup_epochs = config.get("warmup_epochs", 10)
     warmup_scheduler = torch.optim.lr_scheduler.LinearLR(
         optimizer, start_factor=1e-3, end_factor=1.0, total_iters=warmup_epochs
     )
@@ -269,18 +275,18 @@ def _ddp_worker(
         train_loss = 0.0
         grad_norm = 0.0
 
-        for batch_num, batch_cat, batch_y in train_loader:
-            batch_num = batch_num.to(device)
-            batch_cat = batch_cat.to(device)
-            batch_y = batch_y.to(device)
-            
+        for batch in train_loader:
+            batch_num = batch["input_num"].to(device)
+            batch_cat = batch["input_cat"].to(device)
+            batch_y = batch["label"].to(device)
+
             optimizer.zero_grad()
             output = model(batch_num, batch_cat)
             if task_type == "regression":
                 output = output.squeeze(-1).float()
             loss = loss_fn(output, batch_y)
             loss.backward()
-            grad_norm += torch.nn.utils.clip_grad_norm(model.parameters(), max_norm=1.0).item()
+            grad_norm += torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0).item()
             optimizer.step()
             train_loss += loss.item()
 

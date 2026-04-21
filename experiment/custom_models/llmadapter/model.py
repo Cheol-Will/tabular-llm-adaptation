@@ -18,7 +18,7 @@ LLM_DIM_MAPPING = {
 }
 
 
-class TFMLLM(nn.Module):
+class LLMAdapter(nn.Module):
 
     def __init__(
         self,
@@ -48,29 +48,11 @@ class TFMLLM(nn.Module):
         ])
         self.pos_embedding = nn.Parameter(torch.empty(1, self.num_features, self.llm_dim))
         self.output_proj = OutputProj(self.llm_dim, num_classes, mlp_ratio)
-        self._build_backbone(model_name)
+        self.backbone = AutoModelForCausalLM.from_pretrained(
+            model_name, torch_dtype=torch.bfloat16,
+        )
         self.reset_parameters()
         
-    def _build_backbone(self, model_name):
-        # load pretrained llm
-        pretrained_llm = AutoModelForCausalLM.from_pretrained(
-            model_name,
-            dtype=torch.bfloat16,
-            # dtype="auto",
-            # device_map="auto",
-        )
-
-        # remove rope
-        for layer in pretrained_llm.model.layers:
-            attn_rope = layer.self_attn
-            attn_no_rope = LLMAttentionNoRoPE(attn_rope.config, attn_rope.layer_idx)
-            attn_no_rope.load_state_dict(attn_rope.state_dict())
-            layer.self_attn = attn_no_rope
-
-        self.backbone = nn.ModuleList(pretrained_llm.model.layers)
-
-        del pretrained_llm
-
     def reset_parameters(self):
         nn.init.kaiming_uniform_(self.pos_embedding)
   
@@ -79,19 +61,11 @@ class TFMLLM(nn.Module):
         with autocast(device_type="cuda", dtype=torch.bfloat16):
             x = self.feature_tokenizer(x_num, x_cat) # (B, N, d_token)
             x = self.mlp_adapter(x) # (B, N, d_llm)
-            x = x + self.pos_embedding
+            outputs = self.backbone.model(
+                inputs_embeds=x,
+                # attention_mask=None,
+            )
+            pred_hidden = outputs.last_hidden_state.mean(dim=1) # (B, D)
+            logits = self.output_proj(pred_hidden)
 
-            for block in self.backbone:
-                x = block(
-                    x,
-                    attention_mask=None,
-                    position_ids=None,
-                    past_key_values=None,
-                    use_cache=False,
-                    cache_position=None,
-                    position_embeddings=(None, None),
-                )
-            x = x.mean(dim=1) # (B, N)
-            x = self.output_proj(x)
-
-        return x
+        return logits
