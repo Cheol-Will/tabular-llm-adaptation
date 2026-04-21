@@ -1,0 +1,46 @@
+from autogluon.common.space import Int, Real, Categorical
+from tabarena.utils.config_utils import ConfigGenerator
+from .wrapper import LLMAdapterModel
+
+def get_experiment_configs(num_random_configs: int, exp_name: str):
+    """Generate the hyperparameter configurations to run for LLMAdapter."""
+    manual_configs = [
+        {
+            "num_epochs": 100,
+            "lr": 1e-3,
+            "lora_lr": 5e-4,
+            "lora_rank": 8,
+            "lora_alpha": 32,
+            "lora_dropout": 0.1,
+            "batch_size": 256,
+            "weight_decay": 1e-5,
+            "project_name": f"LLMAdapter_{exp_name}", # for wandb
+            "mlp_fine_tune": True if "mlp_fine_tune" in exp_name else False,
+        },
+    ]
+
+    search_space = {
+        "token_dim": Categorical(16, 32),
+        "lr": Real(1e-4, 5e-2, log=True), # feature_tokenizer, output_proj
+        "lora_lr": Real(1e-5, 1e-3, log=True), # backbone (LoRA)
+        "lora_rank": Categorical(4, 8, 16, 32),
+        "lora_alpha": Categorical(16, 32, 64),
+        "lora_dropout": Real(0.0, 0.2),
+        "weight_decay": Real(1e-6, 1e-3, log=True),
+        "mlp_ratio": Categorical(0.25, 0.5, 1.0),
+        "batch_size": Categorical(128, 256, 512),
+        "mlp_fine_tune": Categorical(True if "mlp_fine_tune" in exp_name else False),
+        "project_name": f"LLMAdapter_{exp_name}", # for wandb
+    }
+
+    gen = ConfigGenerator(
+        model_cls=LLMAdapterModel,
+        manual_configs=manual_configs,
+        search_space=search_space,
+        name=f"LLMAdapter_{exp_name}",
+    )
+    return gen.generate_all_bag_experiments(
+        num_random_configs=num_random_configs,
+        fold_fitting_strategy="sequential_local",
+        method_kwargs=dict(init_kwargs=dict(verbosity=0)),
+    )
