@@ -23,7 +23,7 @@ from utils import get_parser
 # TabArena custom model
 import sys
 sys.path.insert(0, str(Path(__file__).parent))
-from custom_models.tfmllm.wrapper import TFMLLMModel
+from custom_models.llmadapter.wrapper import LLMAdapterModel
 
 
 EXCLUDE_KEYS = {"ag_args_ensemble", "ag_args_fit", "gpu_ids"}
@@ -379,7 +379,7 @@ def main(args):
             path=str(predictor_path),
         ).fit(
             train_data=train_data,
-            hyperparameters={TFMLLMModel: best_hp}, 
+            hyperparameters={LLMAdapterModel: best_hp}, 
             num_bag_folds=0,
             num_stack_levels=0,
             verbosity=2,

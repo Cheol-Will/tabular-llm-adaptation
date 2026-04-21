@@ -156,14 +156,48 @@ def debug_dataset_attn_mask():
     
 
 
+def debug_llmadapter_frozen():
+    from custom_models.llmadapter.model import LLMAdapter
+    from peft import LoraConfig, get_peft_model
+
+    model = LLMAdapter(
+        num_num_features=10,
+        cardinalities=[5, 3],
+        model_name="Qwen/Qwen2.5-0.5B",
+        num_embedding_type="plr",
+        token_dim=16,
+        num_classes=2,
+    )
+
+    lora_config = LoraConfig(
+        r=8,
+        lora_alpha=32,
+        target_modules=["q_proj", "k_proj", "v_proj", "o_proj"],
+        lora_dropout=0.1,
+        bias="none",
+    )
+    model = get_peft_model(model, lora_config)
+
+    print("\n=== Trainable modules after get_peft_model ===")
+    for name, param in model.named_parameters():
+        if param.requires_grad:
+            print(f"  [TRAIN] {name} {list(param.shape)}")
+
+    print("\n=== Frozen modules (adapter layers only) ===")
+    for name, param in model.named_parameters():
+        if not param.requires_grad and any(k in name for k in ("feature_tokenizer", "mlp_adapter", "output_proj")):
+            print(f"  [FROZEN] {name} {list(param.shape)}")
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--task_ids", type=int, nargs="+", default=None)
     args = parser.parse_args()
     print(args.task_ids)
-    
+
     # debug_dataset_attn_mask()
     # get_response()
+    debug_llmadapter_frozen()
 
 if __name__ == "__main__":
     main()

@@ -1,18 +1,25 @@
 # model="FTTransformer"
 # model="LLMBaseline"
 
-exp_name="260420-LLMRead-GradClip"
-model="LLMBaseline"
+# exp_name="260420-LLMRead-GradClip"
+exp_name="260421-3"
+model="LLMAdapter"
+# model="LLMBaseline"
 # model_cls_name="LLMReadPred"
-model_cls_name="LLMRead"
+# model_cls_name="LLMRead"
 num_random_configs=10 # for fast experiment
 python experiment/main.py \
     --model $model \
-    --model_cls_name $model_cls_name \
     --exp_name $exp_name \
     --num_random_configs $num_random_configs \
-    --task_ids 363621
+    --problem_type "multi"
+    # --problem_type "reg"
+    # --problem_type "binary"
     # --task_ids 363612
+    # --task_ids   363629 363626 363625
+    # --task_ids 363621
+    # --task_ids 363612
+    # --model_cls_name $model_cls_name \
     # --problem_type "binary"
     # --problem_type "reg"
 

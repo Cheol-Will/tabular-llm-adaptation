@@ -29,11 +29,16 @@ class LLMAdapter(nn.Module):
         token_dim: int = 16,
         num_classes: int = 1,
         mlp_ratio: float = 1.0,
+        use_bidir_attn: bool = False,
         use_cls: bool = False, # TODO: use cls or mean pooling
     ):  
         super().__init__()
+        self.use_bidir_attn = use_bidir_attn
         self.num_features = num_num_features + len(cardinalities) # num columns
-        self.llm_dim = LLM_DIM_MAPPING[model_name]
+        self.backbone = AutoModelForCausalLM.from_pretrained(
+            model_name, torch_dtype=torch.bfloat16,
+        )
+        self.llm_dim = self.backbone.config.hidden_size
         self.feature_tokenizer = FeatureTokenizer(
             num_num_features,
             cardinalities,
@@ -46,17 +51,18 @@ class LLMAdapter(nn.Module):
             nn.Linear(self.llm_dim // 4, self.llm_dim),
             nn.LayerNorm(self.llm_dim)
         ])
-        self.pos_embedding = nn.Parameter(torch.empty(1, self.num_features, self.llm_dim))
+        # self.pos_embedding = nn.Parameter(torch.empty(1, self.num_features, self.llm_dim))
         self.output_proj = OutputProj(self.llm_dim, num_classes, mlp_ratio)
-        self.backbone = AutoModelForCausalLM.from_pretrained(
-            model_name, torch_dtype=torch.bfloat16,
-        )
         self.reset_parameters()
         
     def reset_parameters(self):
-        nn.init.kaiming_uniform_(self.pos_embedding)
+        # nn.init.kaiming_uniform_(self.pos_embedding)
+        pass
   
     def forward(self, x_num: torch.Tensor, x_cat: torch.Tensor):
+        """
+        if self.use_bidir_attn, you make attention mask filled with zero.
+        """
 
         with autocast(device_type="cuda", dtype=torch.bfloat16):
             x = self.feature_tokenizer(x_num, x_cat) # (B, N, d_token)

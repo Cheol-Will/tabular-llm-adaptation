@@ -49,14 +49,23 @@ def get_optimizer(model, config):
     lora_lr = config.get("lora_lr", 1e-4)
     weight_decay = config.get("weight_decay", 1e-5)
     base = model.module.base_model.model
-    
+
     params = [{"params": base.backbone.parameters(), "lr": lora_lr}]
+    if hasattr(base, "feature_tokenizer"):
+        params.append({"params": base.feature_tokenizer.parameters(), "lr": lr})
+    if hasattr(base, "mlp_adapter"):
+        params.append({"params": base.mlp_adapter.parameters(), "lr": lr})
     if hasattr(base, "output_proj"):
         params.append({"params": base.output_proj.parameters(), "lr": lr})
     if hasattr(base, "read_tokens"):
         params.append({"params": [base.read_tokens], "lr": lr})
     if hasattr(base, "pred_token"):
         params.append({"params": [base.pred_token], "lr": lr})
+
+    # PEFT freezes all non-LoRA params; re-enable the tabular adapter layers
+    for name, param in model.named_parameters():
+        if any(k in name for k in ("feature_tokenizer", "mlp_adapter", "output_proj")):
+            param.requires_grad_(True)
 
     optimizer = torch.optim.AdamW(
         params,
@@ -181,8 +190,12 @@ def _ddp_worker(
         mlp_ratio=config.get("mlp_ratio", 1.0)
     ).to(device)
     model = get_peft_model(model, lora_config)
+    
     if rank == 0:
         model.print_trainable_parameters()
+        # for name, param in model.named_parameters():
+        #     if param.requires_grad:
+        #         print(f"  trainable: {name} {list(param.shape)}")
 
     model = DDP(model, device_ids=[gpu_ids[rank]])
 
@@ -281,9 +294,9 @@ def _ddp_worker(
             batch_y = batch["label"].to(device)
 
             optimizer.zero_grad()
-            output = model(batch_num, batch_cat)
+            output = model(batch_num, batch_cat).float()
             if task_type == "regression":
-                output = output.squeeze(-1).float()
+                output = output.squeeze(-1)
             loss = loss_fn(output, batch_y)
             loss.backward()
             grad_norm += torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0).item()

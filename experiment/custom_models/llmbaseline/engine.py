@@ -50,7 +50,12 @@ def get_optimizer(model, config):
     lora_lr = config.get("lora_lr", 1e-4)
     weight_decay = config.get("weight_decay", 1e-5)
     base = model.module.base_model.model
-    
+
+    # PEFT freezes all non-LoRA params; re-enable the custom head/token params
+    for name, param in model.named_parameters():
+        if any(k in name for k in ("output_proj", "read_tokens", "pred_token")):
+            param.requires_grad_(True)
+
     params = [{"params": base.backbone.parameters(), "lr": lora_lr}]
     if hasattr(base, "output_proj"):
         params.append({"params": base.output_proj.parameters(), "lr": lr})
