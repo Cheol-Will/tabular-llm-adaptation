@@ -1,0 +1,29 @@
+\begin{table}[htbp]
+\centering
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{ll|rr}
+\toprule
+ &  & \multicolumn{1}{c}{roc\_auc (\uparrow)} & \multicolumn{1}{c}{rmse (\downarrow)} \\
+\cmidrule(lr){3-3} \cmidrule(lr){4-4}
+\textbf{Method} & \textbf{Type} & \textbf{Blood} & \textbf{Airfoil} \\
+\midrule
+\midrule
+CAT & ML & 0.7078 & 1.1943 \\
+EBM & ML & 0.7111 & 1.8231 \\
+KNN & ML & 0.7039 & 2.2261 \\
+LR & ML & \textbf{0.7539} & 4.7351 \\
+REALMLP\_GPU & DL & 0.7298 & 1.0119 \\
+REALTABPFN-V2.5 & Foundation & 0.7304 & \textbf{0.8704} \\
+\midrule
+FTTransformer & DL & 0.7160 & 3.1313 \\
+LLMBaseline & LLM & 0.7094 & nan \\
+LLMBaselineBidirectional & LLM & 0.7168 & nan \\
+LLMBaselineBidirectionalPooling & LLM & 0.7100 & nan \\
+TFMLLM & LLM & 0.7256 & 4.8444 \\
+LLMRead260420-LLMRead-GradClip & LLM & 0.6893 & 1.2969 \\
+\bottomrule
+\end{tabular}
+}
+\caption{Results (tuned_ensemble)}
+\label{tab:results_tuned_ensemble}
+\end{table}

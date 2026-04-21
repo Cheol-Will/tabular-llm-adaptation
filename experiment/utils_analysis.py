@@ -82,6 +82,7 @@ BOTTOM_METHODS = [
     "LLMBaselineBidirectionalPooling",
     "TFMLLM", 
     "LLMAdapterEngineered",
+    "LLMRead260420-LLMRead-GradClip",
 ]
 
 EXCLUDE_BASELINE_SUBSET = [
@@ -122,6 +123,7 @@ METHOD_CATEGORY: dict[str, str] = {
     "LLMBaselineBidirectional":             "LLM",
     "LLMBaselineBidirectionalPooling":      "LLM",
     "LLMAdapterEngineered":                 "LLM",
+    "LLMRead260420-LLMRead-GradClip":      "LLM",
 }
 
 # Alias

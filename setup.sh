@@ -9,8 +9,8 @@ git clone https://github.com/Cheol-Will/tabular-llm-adaptation.git tabarena
 cd tabarena
 
 echo "=== Creating virtual environment ==="
-uv venv --seed --python 3.11 ~/.venvs/tabarena
-source ~/.venvs/tabarena/bin/activate
+uv venv --seed --python 3.11 .venv/
+source .venv/bin/activate
 cd ..
 
 echo "=== Installing AutoGluon ==="
@@ -26,3 +26,4 @@ cd examples/benchmarking
 python run_quickstart_tabarena.py 
 
 echo "=== Complete Tabarena Setup ==="
+touch experiment/.env

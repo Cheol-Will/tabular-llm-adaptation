@@ -1,0 +1,43 @@
+\begin{table}[htbp]
+\centering
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{ll|rr}
+\toprule
+ &  & \multicolumn{1}{c}{roc\_auc (\uparrow)} & \multicolumn{1}{c}{rmse (\downarrow)} \\
+\cmidrule(lr){3-3} \cmidrule(lr){4-4}
+\textbf{Method} & \textbf{Type} & \textbf{Blood} & \textbf{Airfoil} \\
+\midrule
+\midrule
+CAT & ML & 0.7108 & 1.4743 \\
+EBM & ML & 0.7082 & 1.9174 \\
+GBM & ML & 0.6629 & 1.4854 \\
+KNN & ML & 0.6750 & 3.2474 \\
+LR & ML & 0.7311 & 5.4241 \\
+RF & ML & 0.6651 & 1.7727 \\
+XGB & ML & 0.6632 & 1.4270 \\
+XT & ML & 0.6742 & 1.7070 \\
+FASTAI & DL & 0.7268 & 2.3118 \\
+MNCA\_GPU & DL & \textbf{0.7454} & 1.4534 \\
+NN\_TORCH & DL & 0.7417 & 1.4743 \\
+REALMLP\_GPU & DL & 0.7450 & 1.1262 \\
+TABM\_GPU & DL & 0.7018 & 1.0878 \\
+XRFM\_GPU & DL & 0.6739 & 1.5604 \\
+REALTABPFN-V2.5 & Foundation & 0.7444 & 0.9770 \\
+TABDPT\_GPU & Foundation & 0.7283 & 0.9922 \\
+TABPFNV2\_GPU & Foundation & 0.7387 & \textbf{0.9686} \\
+MITRA\_GPU &  & 0.7220 & 1.0591 \\
+TABICLV2 &  & 0.7452 & 1.0154 \\
+TABICL\_GPU &  & 0.7026 & 1.7727 \\
+\midrule
+FTTransformer & DL & 0.7265 & 6.2144 \\
+LLMBaseline & LLM & 0.7061 & nan \\
+LLMBaselineBidirectional & LLM & 0.5364 & nan \\
+LLMBaselineBidirectionalPooling & LLM & 0.7227 & nan \\
+TFMLLM & LLM & 0.7236 & 5.6436 \\
+LLMRead260420-LLMRead-GradClip & LLM & 0.6975 & 1.3195 \\
+\bottomrule
+\end{tabular}
+}
+\caption{Results (default)}
+\label{tab:results_default}
+\end{table}
