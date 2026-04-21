@@ -76,8 +76,7 @@ def _evaluate_worker(
     device: torch.device,
     eval_metric=None,
 ) -> tuple[float, float]:
-    """Run evaluation on rank-0 using the unwrapped model (no DDP sync needed).
-    """
+    """Run evaluation on rank-0 using the unwrapped model (no DDP sync needed)."""
     model.eval()
     all_outputs, all_labels = [], []
     with torch.no_grad():
@@ -187,7 +186,6 @@ def _ddp_worker(
         model.print_trainable_parameters()
 
     model = DDP(model, device_ids=[gpu_ids[rank]])
-    base = model.module.base_model.model
 
     # DataLoaders
     train_sampler = DistributedSampler(
