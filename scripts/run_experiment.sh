@@ -2,7 +2,7 @@
 # model="LLMBaseline"
 
 # exp_name="260420-LLMRead-GradClip"
-exp_name="260421-3"
+exp_name="260423-bidir"
 model="LLMAdapter"
 # model="LLMBaseline"
 # model_cls_name="LLMReadPred"
@@ -12,7 +12,17 @@ python experiment/main.py \
     --model $model \
     --exp_name $exp_name \
     --num_random_configs $num_random_configs \
-    --problem_type "multi"
+    --use_bidir_attn \
+    --task_ids  363612
+    # --task_ids  363626 363675 363612
+
+
+    # --problem_type "reg" \
+    # --use_tail_task_ids
+    # --problem_type "binary" \
+    # --problem_type "multi"
+
+    
     # --problem_type "reg"
     # --problem_type "binary"
     # --task_ids 363612

@@ -464,6 +464,7 @@ def run_experiments_new(
                         model_hps = model_experiment.method_kwargs['model_hyperparameters']
                         os.environ["CURRENT_AG_ARGS"] = str(model_hps["ag_args"]["name_suffix"]) # current hpo config number
                         print(f"Running with model_hyperparameters: \n{model_hps}")
+                        print(f"Running with model_hyperparameters: \n{model_experiment.method_kwargs}")
                         out = model_experiment.run(
                             task=task,
                             fold=fold,

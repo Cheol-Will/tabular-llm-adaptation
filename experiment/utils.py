@@ -16,6 +16,7 @@ def get_parser():
     parser.add_argument("--subset", type=str, default='all', help="") 
     parser.add_argument("--problem_type", type=str, default=None, help="") 
     parser.add_argument("--task_ids", type=int, nargs="+", default=None)
+    parser.add_argument("--use_tail_task_ids", action="store_true")
 
     # common model hyperparameters
     parser.add_argument("--mlp_fine_tune", action="store_true")
@@ -34,8 +35,7 @@ def load_tid(name: str = 'tid'):
 def filter_data(args):
     # task_ids = openml.study.get_suite("tabarena-v0.1").tasks
     task_ids = load_tid() # sorted by num_instances
-    if args.subset == 'tail':
-        task_ids = task_ids[len(task_ids)//2:]
+
     if args.num_data is not None:
         task_ids = task_ids[:args.num_data]
 
@@ -67,6 +67,9 @@ def filter_data(args):
 
     if args.task_ids is not None:
         task_ids = args.task_ids
+
+    if args.use_tail_task_ids:
+        task_ids = task_ids[len(task_ids)//2:]
 
     return task_ids
 
