@@ -33,10 +33,8 @@ class LLMAdapter(nn.Module):
         use_cls: bool = False, # TODO: use cls or mean pooling
     ):  
         super().__init__()
-        self.use_bidir_attn = use_bidir_attn
-        self.num_features = num_num_features + len(cardinalities) # num columns
         self.backbone = AutoModelForCausalLM.from_pretrained(
-            model_name, torch_dtype=torch.bfloat16,
+            model_name, dtype=torch.bfloat16,
         )
         self.llm_dim = self.backbone.config.hidden_size
         self.feature_tokenizer = FeatureTokenizer(
@@ -55,9 +53,16 @@ class LLMAdapter(nn.Module):
         self.output_proj = OutputProj(self.llm_dim, num_classes, mlp_ratio)
         self.reset_parameters()
         
+        self.use_bidir_attn = use_bidir_attn
+        self.num_features = num_num_features + len(cardinalities) # num columns
+
     def reset_parameters(self):
         # nn.init.kaiming_uniform_(self.pos_embedding)
         pass
+
+    def get_bidir_attn_mask(self):
+        return torch.full((1, 1, self.num_features, self.num_features), 0)
+        
   
     def forward(self, x_num: torch.Tensor, x_cat: torch.Tensor):
         """
@@ -67,9 +72,15 @@ class LLMAdapter(nn.Module):
         with autocast(device_type="cuda", dtype=torch.bfloat16):
             x = self.feature_tokenizer(x_num, x_cat) # (B, N, d_token)
             x = self.mlp_adapter(x) # (B, N, d_llm)
+
+            attention_mask = None # default causal mask generated
+            if self.use_bidir_attn:
+                attention_mask = self.get_bidir_attn_mask()
+                attention_mask = attention_mask.expand(x.shape[0], -1, -1, -1).to(x.device)
+            
             outputs = self.backbone.model(
                 inputs_embeds=x,
-                # attention_mask=None,
+                attention_mask=attention_mask,
             )
             pred_hidden = outputs.last_hidden_state.mean(dim=1) # (B, D)
             logits = self.output_proj(pred_hidden)

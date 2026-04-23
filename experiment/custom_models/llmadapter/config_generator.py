@@ -2,8 +2,16 @@ from autogluon.common.space import Int, Real, Categorical
 from tabarena.utils.config_utils import ConfigGenerator
 from .wrapper import LLMAdapterModel
 
-def get_experiment_configs(num_random_configs: int, exp_name: str):
-    """Generate the hyperparameter configurations to run for LLMAdapter."""
+def get_experiment_configs(
+        args,
+        num_random_configs: int, 
+        exp_name: str
+    ):
+    """
+    Generate the hyperparameter configurations to run for LLMAdapter.
+    We make configurations for hyperparameters and construct specific experiment setting such as\
+    bidirectional attention or so on.
+    """
     manual_configs = [
         {
             "num_epochs": 100,
@@ -12,25 +20,29 @@ def get_experiment_configs(num_random_configs: int, exp_name: str):
             "lora_rank": 8,
             "lora_alpha": 32,
             "lora_dropout": 0.1,
-            "batch_size": 256,
+            "mlp_ratio": 1.0,
             "weight_decay": 1e-5,
-            "project_name": f"LLMAdapter_{exp_name}", # for wandb
-            "mlp_fine_tune": True if "mlp_fine_tune" in exp_name else False,
+            "batch_size": 256,
+            "mlp_fine_tune": args.mlp_fine_tune,
+            "use_bidir_attn": args.use_bidir_attn,
+            "project_name": f"{args.model}_{args.exp_name}", # for wandb
         },
     ]
 
     search_space = {
+        "num_epochs": 100,
         "token_dim": Categorical(16, 32),
         "lr": Real(1e-4, 5e-2, log=True), # feature_tokenizer, output_proj
         "lora_lr": Real(1e-5, 1e-3, log=True), # backbone (LoRA)
         "lora_rank": Categorical(4, 8, 16, 32),
         "lora_alpha": Categorical(16, 32, 64),
         "lora_dropout": Real(0.0, 0.2),
-        "weight_decay": Real(1e-6, 1e-3, log=True),
         "mlp_ratio": Categorical(0.25, 0.5, 1.0),
+        "weight_decay": Real(1e-6, 1e-3, log=True),
         "batch_size": Categorical(128, 256, 512),
-        "mlp_fine_tune": Categorical(True if "mlp_fine_tune" in exp_name else False),
-        "project_name": f"LLMAdapter_{exp_name}", # for wandb
+        "mlp_fine_tune": args.mlp_fine_tune,
+        "use_bidir_attn": args.use_bidir_attn,
+        "project_name": f"{args.model}_{args.exp_name}", # for wandb
     }
 
     gen = ConfigGenerator(
