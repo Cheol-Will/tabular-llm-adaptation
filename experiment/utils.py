@@ -17,6 +17,9 @@ def get_parser():
     parser.add_argument("--problem_type", type=str, default=None, help="") 
     parser.add_argument("--task_ids", type=int, nargs="+", default=None)
 
+    # common model hyperparameters
+    parser.add_argument("--mlp_fine_tune", action="store_true")
+    parser.add_argument("--use_bidir_attn", action="store_true")
     return parser
 
 def load_tid(name: str = 'tid'):
@@ -69,22 +72,20 @@ def filter_data(args):
 
 
 def get_model_experiments(
+        args,
         model: str, 
         exp_name: str,    
         num_random_configs: int = 200,
         model_cls_name: str = None,
     ):
-    """
-    Dynamically loads the experiment configuration generator for a given model.
-    """
     try:
         module_path = f"custom_models.{model.lower()}.config_generator"
         config_module = importlib.import_module(module_path)
         get_configs_func = getattr(config_module, "get_experiment_configs")
         if model_cls_name is not None:
-            return get_configs_func(num_random_configs, exp_name, model_cls_name)
+            return get_configs_func(args, num_random_configs, exp_name, model_cls_name)
         else:
-            return get_configs_func(num_random_configs, exp_name)
+            return get_configs_func(args, num_random_configs, exp_name)
 
     except (ImportError, AttributeError) as e:
         raise ValueError(f"Could not find configuration generator for model '{model}': {e}")

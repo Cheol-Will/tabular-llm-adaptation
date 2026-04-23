@@ -106,6 +106,8 @@ def summary_evaluate(args):
         # ("LLMAdapterReg260401-2-engineering", "260401-2-engineering"),
         # ("LLMAdapterReg260402-mlp_ratio-tune_mlp", "260402-mlp_ratio-tune_mlp"),
         ("LLMRead260420-LLMRead-GradClip", "260420-LLMRead-GradClip"),
+        ("LLMAdapter260421-3", "260421-3"),
+
     ]
 
     end_to_end = EndToEnd.from_cache(

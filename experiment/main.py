@@ -17,6 +17,7 @@ def main(args):
 
     task_ids = filter_data(args)
     model_experiments = get_model_experiments(
+        args=args,
         model=args.model, 
         exp_name=args.exp_name,
         num_random_configs=args.num_random_configs,
@@ -28,7 +29,7 @@ def main(args):
         tasks=task_ids,
         repetitions_mode="TabArena-Lite",
         exclude_task_ids = [
-            363620, # num_cols > 1000
+            363620,
             363677,
             363697,
         ] 
