@@ -21,6 +21,7 @@ def get_parser():
     # common model hyperparameters
     parser.add_argument("--mlp_fine_tune", action="store_true")
     parser.add_argument("--use_bidir_attn", action="store_true")
+    parser.add_argument("--prediction_method", type=str, default="next_token_pred")
     return parser
 
 def load_tid(name: str = 'tid'):

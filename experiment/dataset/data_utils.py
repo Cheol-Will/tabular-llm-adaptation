@@ -47,3 +47,24 @@ def get_column_mask(tokenizer, row, max_length: int | None = None):
         column_mask_ = column_mask_[:max_length]
 
     return column_mask_
+
+
+def get_initial_prompt(tokenizer, row, y):
+    """
+    Docstring for get_initial_prompt
+    """
+    target_name = y.name if y.name is not None else "target"
+    items = list(row.items())
+    segments = []
+    for col, _ in items:
+        segments.append(f"{col} is")
+    segments.append(f"{target_name} is")
+    
+    column_ids = []
+    column_ids_lengths = []
+    for seg in segments:
+        ids = tokenizer.encode(seg, add_special_tokens=False)
+        column_ids.append(ids)
+        column_ids_lengths.append(len(ids))
+
+    return column_ids, column_ids_lengths

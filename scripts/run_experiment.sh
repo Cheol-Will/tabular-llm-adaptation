@@ -2,8 +2,8 @@
 # model="LLMBaseline"
 
 # exp_name="260420-LLMRead-GradClip"
-exp_name="260423-bidir"
-model="LLMAdapter"
+exp_name="260424-next_token_pred"
+model="LLMSlot"
 # model="LLMBaseline"
 # model_cls_name="LLMReadPred"
 # model_cls_name="LLMRead"
@@ -12,9 +12,13 @@ python experiment/main.py \
     --model $model \
     --exp_name $exp_name \
     --num_random_configs $num_random_configs \
-    --use_bidir_attn \
-    --task_ids  363612
-    # --task_ids  363626 363675 363612
+    --prediction_method next_token_pred \
+    --task_ids  363621 363629 363626 363698 363625 363675 363612
+    # --problem_type "binary"
+    # --use_bidir_attn \
+    # --task_ids  363612
+    # --problem_type "binary"
+    # --problem_type "reg"
 
 
     # --problem_type "reg" \
