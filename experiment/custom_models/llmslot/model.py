@@ -86,7 +86,7 @@ class LLMSlot(nn.Module):
         pass
 
     def get_bidir_attn_mask(self, seq_len: int):
-        return torch.full((1, 1, seq_len, seq_len), 0)
+        return torch.full((1, 1, seq_len, seq_len), 0, dtype=torch.bool)
 
     def forward(self, x_num: torch.Tensor, x_cat: torch.Tensor):
         """

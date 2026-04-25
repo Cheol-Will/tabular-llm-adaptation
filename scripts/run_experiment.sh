@@ -13,10 +13,14 @@ python experiment/main.py \
     --exp_name $exp_name \
     --num_random_configs $num_random_configs \
     --prediction_method next_token_pred \
-    --task_ids  363621 363629 363626 363698 363625 363675 363612
+    --task_ids 363612  
+    # --task_ids 363698 363626 363675
+    # --task_ids 363629 363625 363675
+    # --task_ids  
+    # --task_ids  363621 363629 363626 
     # --problem_type "binary"
     # --use_bidir_attn \
-    # --task_ids  363612
+    # --task_ids  
     # --problem_type "binary"
     # --problem_type "reg"
 
