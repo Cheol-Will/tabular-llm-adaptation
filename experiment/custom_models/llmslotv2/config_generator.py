@@ -1,6 +1,6 @@
 from autogluon.common.space import Int, Real, Categorical
 from tabarena.utils.config_utils import ConfigGenerator
-from .wrapper import LLMSlotModel
+from .wrapper import LLMSlotv2Model
 
 def get_experiment_configs(
         args,
@@ -49,10 +49,10 @@ def get_experiment_configs(
     }
 
     gen = ConfigGenerator(
-        model_cls=LLMSlotModel,
+        model_cls=LLMSlotv2Model,
         manual_configs=manual_configs,
         search_space=search_space,
-        name=f"LLMSlot_{exp_name}",
+        name=f"{args.model}_{exp_name}",
     )
     return gen.generate_all_bag_experiments(
         num_random_configs=num_random_configs,
