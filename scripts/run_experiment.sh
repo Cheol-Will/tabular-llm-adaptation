@@ -3,7 +3,7 @@
 
 # exp_name="260420-LLMRead-GradClip"
 exp_name="260424-next_token_pred"
-model="LLMSlot"
+model="LLMSlotv2"
 # model="LLMBaseline"
 # model_cls_name="LLMReadPred"
 # model_cls_name="LLMRead"
@@ -13,11 +13,12 @@ python experiment/main.py \
     --exp_name $exp_name \
     --num_random_configs $num_random_configs \
     --prediction_method next_token_pred \
-    --task_ids 363612  
-    # --task_ids 363698 363626 363675
-    # --task_ids 363629 363625 363675
+    --task_ids 363698 363626 
+    # --task_ids 363621 363675
+    # --task_ids 363629 363625
+    # --task_ids 363612  
     # --task_ids  
-    # --task_ids  363621 363629 363626 
+    # --task_ids   363629 363626 
     # --problem_type "binary"
     # --use_bidir_attn \
     # --task_ids  
