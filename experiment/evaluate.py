@@ -96,17 +96,19 @@ def summary_evaluate(args):
 
     methods = [
         "FTTransformer",
-        "LLMBaseline",
-        "LLMBaselineBidirectional",
-        "LLMBaselineBidirectionalPooling",
-        "TFMLLM",
+        # "LLMBaseline",
+        # "LLMBaselineBidirectional",
+        # "LLMBaselineBidirectionalPooling",
+        # "TFMLLM",
         # ("LLMAdapterEngineered260331-engineering", "260331-engineering"),
         # ("LLMAdapterEngineered260401-engineering", "260401-engineering"),
         # ("LLMAdapterEngineered260401-2-engineering", "260401-2-engineering"),
         # ("LLMAdapterReg260401-2-engineering", "260401-2-engineering"),
         # ("LLMAdapterReg260402-mlp_ratio-tune_mlp", "260402-mlp_ratio-tune_mlp"),
-        ("LLMRead260420-LLMRead-GradClip", "260420-LLMRead-GradClip"),
-        ("LLMAdapter260421-3", "260421-3"),
+        # ("LLMRead260420-LLMRead-GradClip", "260420-LLMRead-GradClip"),
+        # ("LLMAdapter260421-3", "260421-3"),
+        ("LLMAdapter260423-bidir", "260423-bidir"),
+        ("LLMSlot260424-next_token_pred", "260424-next_token_pred"),
 
     ]
 

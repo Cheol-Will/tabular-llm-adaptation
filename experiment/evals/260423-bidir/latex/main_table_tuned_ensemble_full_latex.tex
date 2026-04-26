@@ -1,0 +1,37 @@
+\begin{table}[htbp]
+\centering
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{ll|rrrrrrrr}
+\toprule
+ &  & \multicolumn{3}{c}{roc\_auc (\uparrow)} & \multicolumn{4}{c}{rmse (\downarrow)} & \multicolumn{1}{c}{log\_loss (\downarrow)} \\
+\cmidrule(lr){3-5} \cmidrule(lr){6-9} \cmidrule(lr){10-10}
+\textbf{Method} & \textbf{Type} & \textbf{Blood} & \textbf{Credit-G} & \textbf{Diabetes} & \textbf{QSAR-Fish} & \textbf{Airfoil} & \textbf{Concrete} & \textbf{Insurance} & \textbf{Anneal} \\
+\midrule
+\midrule
+CAT & ML & 0.7078 & 0.7914 & 0.8392 & 0.9108 & 1.1943 & 4.3493 & 4099.4151 & 0.0285 \\
+EBM & ML & 0.7111 & 0.7851 & \textbf{0.8519} & 0.9339 & 1.8231 & 4.3780 & 4058.6073 & 0.0504 \\
+GBM & ML & 0.7219 & 0.7797 & 0.8345 & 0.9151 & 1.3396 & 4.2318 & 4101.0708 & 0.0444 \\
+KNN & ML & 0.7039 & 0.7679 & 0.8227 & 0.9347 & 2.2261 & 6.0604 & 4601.1373 & 0.0773 \\
+LR & ML & \textbf{0.7539} & 0.7653 & 0.8264 & 0.9769 & 4.7351 & 7.9030 & 5578.9390 & 0.0543 \\
+RF & ML & 0.6664 & 0.7818 & 0.8258 & 0.9167 & 1.7501 & 5.3557 & 4226.2096 & 0.0230 \\
+XGB & ML & 0.6994 & 0.7847 & 0.8267 & 0.9146 & 1.3129 & 4.2893 & 4133.8996 & 0.0389 \\
+XT & ML & 0.6821 & 0.7655 & 0.8404 & 0.9078 & 1.6282 & 5.1905 & 4132.7541 & 0.0290 \\
+FASTAI & DL & 0.7437 & 0.7694 & 0.8439 & 0.9312 & 1.5579 & 5.2294 & 4214.6271 & 0.0853 \\
+MNCA\_GPU & DL & 0.6754 & 0.7785 & 0.8070 & 0.9226 & 1.3086 & 5.1758 & 4117.0855 & 0.0407 \\
+NN\_TORCH & DL & 0.7406 & 0.7794 & 0.8247 & 0.9212 & 1.2510 & 4.4541 & 4144.1989 & 0.0564 \\
+REALMLP\_GPU & DL & 0.7298 & \textbf{0.7925} & 0.8459 & 0.9015 & 1.0119 & 4.1414 & 4071.1784 & 0.0300 \\
+TABM\_GPU & DL & 0.7102 & 0.7882 & 0.8252 & 0.9109 & 0.9773 & 4.3743 & 4101.5608 & 0.0377 \\
+XRFM\_GPU & DL & 0.7039 & 0.7666 & 0.8444 & 0.9116 & 1.1755 & 4.3440 & 4217.9791 & 0.0269 \\
+REALTABPFN-V2.5 & Foundation & 0.7304 & 0.7812 & 0.8432 & \textbf{0.8867} & \textbf{0.8704} & \textbf{3.7666} & \textbf{4030.7247} & \textbf{0.0106} \\
+TABDPT\_GPU & Foundation & 0.7275 & 0.7692 & 0.8434 & 0.8974 & 0.9490 & 4.0403 & 4104.0712 & 0.0328 \\
+TABPFNV2\_GPU & Foundation & 0.7273 & 0.7866 & 0.8419 & 0.8959 & 0.9148 & 3.9147 & 4147.5325 & 0.0254 \\
+LLMAdapter260423-bidir &  & 0.7242 & 0.7871 & 0.8398 & 0.9388 & 1.1047 & 4.6993 & 4085.1296 & 0.1456 \\
+LLMSlot260424-next\_token\_pred &  & 0.7202 & 0.7744 & 0.8320 & 0.9417 & 1.0459 & 4.6248 & 4036.6501 & nan \\
+\midrule
+FTTransformer & DL & 0.7160 & 0.7786 & 0.8275 & 1.0236 & 3.1313 & 6.2631 & 4328.3794 & 0.0363 \\
+\bottomrule
+\end{tabular}
+}
+\caption{Results (tuned_ensemble)}
+\label{tab:results_tuned_ensemble}
+\end{table}
