@@ -1,12 +1,8 @@
 # model="FTTransformer"
 # model="LLMBaseline"
 
-# exp_name="260420-LLMRead-GradClip"
-exp_name="260424-next_token_pred"
-model="LLMSlot"
-# model="LLMBaseline"
-# model_cls_name="LLMReadPred"
-# model_cls_name="LLMRead"
+exp_name="260425-next_token_pred"
+model="LLMSlotv2"
 num_random_configs=10 # for fast experiment
 python experiment/main.py \
     --model $model \
