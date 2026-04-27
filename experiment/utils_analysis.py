@@ -5,6 +5,12 @@ from pathlib import Path
 
 import pandas as pd
 
+METADATA_PATH = Path(__file__).parent.parent / "tabarena" / "tabarena" / "nips2025_utils" / "metadata" / "curated_tabarena_dataset_metadata.csv"
+
+def _load_dataset_task_id_map() -> dict[str, int]:
+    meta = pd.read_csv(METADATA_PATH)
+    return dict(zip(meta["dataset_name"], meta["task_id"]))
+
 EXCLUDE_KEYS = {"ag_args_ensemble", "ag_args_fit", "gpu_ids",}
 CONTINUOUS_HPS = {"dropout", "lora_dropout", "lora_lr", "lr", "weight_decay", }
 DISCRETE_HPS   = {"batch_size", "lora_rank", "lora_alpha"}
@@ -287,7 +293,7 @@ def pivot_main_table(
     # add category column
     pivot.insert(0, "category", [METHOD_CATEGORY.get(m, "") for m in pivot.index])
 
-    # metric row 
+    # metric row
     abbrev_metric_map = {
         DATASET_ABBREV.get(k, k): v
         for k, v in dataset_metric_map.items()
@@ -295,7 +301,17 @@ def pivot_main_table(
     data_cols = [c for c in pivot.columns if c != "category"]
     metric_vals = {"category": ""} | {c: abbrev_metric_map.get(c, "") for c in data_cols}
     metric_df = pd.DataFrame([metric_vals], index=["metric"])
-    pivot = pd.concat([metric_df, pivot])
+
+    # task_id row
+    dataset_task_id_map = _load_dataset_task_id_map()
+    abbrev_task_id_map = {
+        DATASET_ABBREV.get(k, k): v
+        for k, v in dataset_task_id_map.items()
+    }
+    task_id_vals = {"category": ""} | {c: abbrev_task_id_map.get(c, "") for c in data_cols}
+    task_id_df = pd.DataFrame([task_id_vals], index=["task_id"])
+
+    pivot = pd.concat([metric_df, task_id_df, pivot])
 
     return pivot, abbrev_metric_map
 
@@ -308,12 +324,14 @@ def save_latex(
 ) -> None:
     df = pivot.copy()
 
-    metric_row = df.loc[["metric"]]
-    numeric_df = df.drop(index="metric").copy()
+    metric_row  = df.loc[["metric"]]
+    task_id_row = df.loc[["task_id"]]
+    numeric_df  = df.drop(index=["metric", "task_id"]).copy()
 
     category_col = numeric_df["category"].copy()
     numeric_df   = numeric_df.drop(columns=["category"]).astype(float)
     metric_row   = metric_row.drop(columns=["category"])
+    task_id_row  = task_id_row.drop(columns=["category"])
 
     original_cols: list[str] = list(numeric_df.columns)
     escaped_cols = [escape_latex(str(c)) for c in original_cols]
@@ -326,11 +344,13 @@ def save_latex(
             first_bottom_escaped = escaped_m
             break
 
-    numeric_df.columns = escaped_cols
-    numeric_df.index   = escaped_idx
-    category_col.index = escaped_idx
-    metric_row.columns = escaped_cols
-    metric_row.index   = ["metric"]
+    numeric_df.columns  = escaped_cols
+    numeric_df.index    = escaped_idx
+    category_col.index  = escaped_idx
+    metric_row.columns  = escaped_cols
+    metric_row.index    = ["metric"]
+    task_id_row.columns = escaped_cols
+    task_id_row.index   = ["task\\_id"]
 
     def fmt_cell(val: float, orig_col: str, escaped_col: str) -> str:
         try:
@@ -382,6 +402,15 @@ def save_latex(
     ]
     dataset_header_row = " & ".join(dataset_header_cells) + " \\\\"
 
+    # task_id header row
+    _tid_index = "task\\_id"
+    task_id_header_cells = ["\\textit{task\\_id}", ""] + [
+        f"\\textit{{{str(task_id_row.at[_tid_index, escape_latex(c)])}}}"
+        if escape_latex(c) in task_id_row.columns else ""
+        for c in original_cols
+    ]
+    task_id_header_row = " & ".join(task_id_header_cells) + " \\\\"
+
     final_df = pd.concat([formatted])
     col_fmt = "ll|" + "r" * len(escaped_cols)
 
@@ -406,6 +435,7 @@ def save_latex(
             new_inner.append(metric_header_row)
             new_inner.append(cmidrule_row)
             new_inner.append(dataset_header_row)
+            new_inner.append(task_id_header_row)
             new_inner.append("\\midrule")
             toprule_inserted = True
         # for ours and important baselines, add \midrule
