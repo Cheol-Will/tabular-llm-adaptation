@@ -1,0 +1,25 @@
+\begin{table}[htbp]
+\centering
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{ll|rrrrrrr}
+\toprule
+ &  & \multicolumn{3}{c}{roc\_auc (\uparrow)} & \multicolumn{4}{c}{rmse (\downarrow)} \\
+\cmidrule(lr){3-5} \cmidrule(lr){6-9}
+\textbf{Method} & \textbf{Type} & \textbf{Blood} & \textbf{Credit-G} & \textbf{Diabetes} & \textbf{QSAR-Fish} & \textbf{Airfoil} & \textbf{Concrete} & \textbf{Insurance} \\
+\midrule
+\midrule
+CAT & ML & 0.7051 & 0.7838 & 0.8376 & 0.9171 & 1.1913 & 4.3336 & 4075.9578 \\
+EBM & ML & 0.7207 & 0.7800 & \textbf{0.8536} & 0.9339 & 1.8751 & 4.3792 & \textbf{4036.8570} \\
+KNN & ML & 0.6988 & 0.7602 & 0.8143 & 0.9472 & 2.5530 & 6.2608 & 4630.2356 \\
+LR & ML & \textbf{0.7489} & 0.7652 & 0.8262 & 0.9771 & 4.7522 & 7.9501 & 5585.8824 \\
+REALMLP\_GPU & DL & 0.7248 & \textbf{0.7967} & 0.8390 & 0.9278 & 1.0575 & 4.1444 & 4053.7824 \\
+REALTABPFN-V2.5 & Foundation & 0.7272 & 0.7849 & 0.8419 & \textbf{0.8974} & \textbf{0.9048} & \textbf{3.7570} & 4101.0519 \\
+LLMSlot260424-next\_token\_pred &  & 0.7218 & 0.7821 & 0.8400 & 0.9503 & 1.0499 & 4.7772 & 4097.9251 \\
+\midrule
+FTTransformer & DL & 0.7185 & 0.7801 & 0.8209 & 1.0440 & 2.8392 & 6.2435 & 4393.4196 \\
+\bottomrule
+\end{tabular}
+}
+\caption{Results (tuned)}
+\label{tab:results_tuned}
+\end{table}

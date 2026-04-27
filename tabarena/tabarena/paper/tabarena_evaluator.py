@@ -1286,15 +1286,15 @@ class TabArenaEvaluator:
                         width=0.5, linewidth=linewidth,
                         err_kws={"color": errcolors[1], "linewidth": err_linewidths['tuned'], 'alpha': err_alpha},
                     ),
-                    dict(
-                        x=pos, y=y,
-                        label="Default",
-                        data=df_plot_w_mean_per_dataset[df_plot_w_mean_per_dataset["tune_method"] == "default"], ax=ax,
-                        order=framework_type_order, color=colors[0],
-                        width=0.4, linewidth=linewidth,
-                        err_kws={"color": errcolors[0], "linewidth": err_linewidths['default'], 'alpha': err_alpha},
-                        alpha=1.0,
-                    ),
+                    # dict(
+                    #     x=pos, y=y,
+                    #     label="Default",
+                    #     data=df_plot_w_mean_per_dataset[df_plot_w_mean_per_dataset["tune_method"] == "default"], ax=ax,
+                    #     order=framework_type_order, color=colors[0],
+                    #     width=0.4, linewidth=linewidth,
+                    #     err_kws={"color": errcolors[0], "linewidth": err_linewidths['default'], 'alpha': err_alpha},
+                    #     alpha=1.0,
+                    # ),
                     dict(
                         x=pos, y=y,
                         label="Tuned + Ensembled (Holdout)",
@@ -1418,26 +1418,26 @@ class TabArenaEvaluator:
                     # ----- add elo error bars -----
                     # Get the bar positions
 
-
+                    pass
                     # Add asymmetric error bars manually
-                    for pos, framework_type in zip(ticks, ticklabels):
-                        for tune_method, errcolor in zip(["default", "tuned", "tuned_ensembled", "holdout_tuned_ensembled"], errcolors):
-                            row = df_plot.loc[(df_plot["framework_type"] == framework_type) & (df_plot["tune_method"] == tune_method)]
-                            if len(row) == 1:
-                                # not all methods have tuned or tuned_ensembled
-                                y = row['elo'].values
-                                yerr_low = row['elo-'].values
-                                yerr_high = row['elo+'].values
-                                if use_y:
-                                    plotline, caps, barlinecols = plt.errorbar(y, pos, xerr=[yerr_low, yerr_high],
-                                                                               fmt='none', color=errcolor,
-                                                                               alpha=err_alpha,
-                                                                               linewidth=err_linewidths[tune_method])
-                                else:
-                                    plotline, caps, barlinecols = plt.errorbar(pos, y, yerr=[yerr_low, yerr_high],
-                                                                               fmt='none', color=errcolor,
-                                                                               alpha=err_alpha,
-                                                                               linewidth=err_linewidths[tune_method])
+                    # for pos, framework_type in zip(ticks, ticklabels):
+                    #     for tune_method, errcolor in zip(["default", "tuned", "tuned_ensembled", "holdout_tuned_ensembled"], errcolors):
+                    #         row = df_plot.loc[(df_plot["framework_type"] == framework_type) & (df_plot["tune_method"] == tune_method)]
+                    #         if len(row) == 1:
+                    #             # not all methods have tuned or tuned_ensembled
+                    #             y = row['elo'].values
+                    #             yerr_low = row['elo-'].values
+                    #             yerr_high = row['elo+'].values
+                    #             if use_y:
+                    #                 plotline, caps, barlinecols = plt.errorbar(y, pos, xerr=[yerr_low, yerr_high],
+                    #                                                            fmt='none', color=errcolor,
+                    #                                                            alpha=err_alpha,
+                    #                                                            linewidth=err_linewidths[tune_method])
+                    #             else:
+                    #                 plotline, caps, barlinecols = plt.errorbar(pos, y, yerr=[yerr_low, yerr_high],
+                    #                                                            fmt='none', color=errcolor,
+                    #                                                            alpha=err_alpha,
+                    #                                                            linewidth=err_linewidths[tune_method])
                                 # don't round because it will make the lines longer
                                 # plt.setp(barlinecols[0], capstyle="round")
 

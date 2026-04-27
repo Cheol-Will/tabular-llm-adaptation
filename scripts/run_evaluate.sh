@@ -46,14 +46,14 @@
 # summary
 # exp_name="260331-engineering"
 # exp_name="260331-engineering"
-exp_name="260421-3"
-model="LLMAdapter"
+# exp_name="260423-bidir"
+exp_name="260424-next_token_pred"
+model="LLMSlot"
 
-
-# exp_name="260420-LLMRead-GradClip"
-# model="LLMRead260420-LLMRead-GradClip"
-
+# exp_name="260423-bidir"
+# model="LLMAdapter"
 python experiment/evaluate.py \
     --model "$model$exp_name" \
-    --exp_name $exp_name
+    --exp_name $exp_name \
     # --generate_cache
+    # --model "$model" \
