@@ -56,11 +56,11 @@ class TextLabelDataset(Dataset):
         y_mean: float = 0.0,
         y_std: float = 1.0,
         use_pred_token: bool = False,
+        target_name: str = None,
     ):
         self.task_type = task_type
         self.has_label = labels is not None
         self.num_columns = X.shape[1]
-        target_name = y.name
         X_texts = serialize_data(X, target_name)
 
         encodings = tokenizer(
