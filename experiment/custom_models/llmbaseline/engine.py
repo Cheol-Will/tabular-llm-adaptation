@@ -200,10 +200,18 @@ def _ddp_worker(
         train_dataset,
         batch_size=config.get("batch_size", 64),
         sampler=train_sampler,
+        num_workers=4,
+        pin_memory=True,                            
     )
     # Only rank 0 evaluates; uses model.module directly (no DDP all-reduce)
     val_loader = (
-        DataLoader(val_dataset, batch_size=config.get("eval_batch_size", 128), shuffle=False)
+        DataLoader(
+            val_dataset,
+            batch_size=config.get("eval_batch_size", 128), 
+            shuffle=False,
+            num_workers=4,
+            pin_memory=True,                            
+        )
         if rank == 0
         else None
     )
@@ -217,11 +225,13 @@ def _ddp_worker(
     best_val_score = -np.inf
     best_state: dict | None = None
 
+    ag_args = os.getenv("CURRENT_AG_ARGS", "_c1")
+
     if rank == 0 and use_wandb:
         wandb.init(
             project=f"{project_name}-tabarena",
             name=f"task_{task_id}_{project_name}",
-            group=str(task_id),
+            group=f"{task_id}{ag_args}",
             config={
                 "task_id": task_id,
                 "model_name": model_name,
@@ -397,9 +407,6 @@ class LLMBaselineImplementation:
         return label_texts, label_token_ids
 
     def _make_loader(self, X: pd.DataFrame, y: pd.Series | None, shuffle: bool) -> DataLoader:
-        target_name = self.target_name
-        texts = serialize_data(X, target_name)
-
         labels = None
         if y is not None:
             if self.task_type_ == "regression":
@@ -417,15 +424,15 @@ class LLMBaselineImplementation:
             max_length=self.config.get("max_length", 128),
             y_mean=self.y_mean_,
             y_std=self.y_std_,
-            target_name=target_name,
             use_pred_token=self.config.get("use_pred_token", False),
+            target_name=self.target_name,
         )
         batch_size = (
             self.config.get("batch_size", 64)
             if y is not None
             else self.config.get("eval_batch_size", 128)
         )
-        return DataLoader(dataset, batch_size=batch_size, shuffle=shuffle)
+        return DataLoader(dataset, batch_size=batch_size, shuffle=shuffle, num_workers=4, pin_memory=True)
 
     def fit(
         self,
@@ -438,6 +445,7 @@ class LLMBaselineImplementation:
     ):
         gc.collect()
         torch.cuda.empty_cache()
+        self.target_name = y_train.name if y_train.name is not None else "target"
 
         task_id = self.config.get("task_id") or int(os.getenv("CURRENT_TASK_ID", "0"))
         start_time = time.time()
@@ -451,7 +459,6 @@ class LLMBaselineImplementation:
             torch.manual_seed(random_state)
             np.random.seed(random_state)
 
-        self.target_name = y_train.name 
         problem_type = self.config["problem_type"]
         self.task_type_ = "binclass" if problem_type == "binary" else problem_type
         model_name = self.config.get("model_name", "Qwen/Qwen2.5-0.5B")
@@ -485,16 +492,16 @@ class LLMBaselineImplementation:
             tokenizer=self.tokenizer, task_type=self.task_type_,
             labels=train_labels, label_token_ids=self.label_token_ids_,
             max_length=max_length, y_mean=self.y_mean_, y_std=self.y_std_,
-            target_name=self.target_name,
             use_pred_token=self.config.get("use_pred_token", False),
+            target_name=self.target_name,
         )
         val_dataset = self.dataset_cls(
             X=X_val, y=y_val,
             tokenizer=self.tokenizer, task_type=self.task_type_,
             labels=val_labels, label_token_ids=self.label_token_ids_,
             max_length=max_length, y_mean=self.y_mean_, y_std=self.y_std_,
-            target_name=self.target_name,
             use_pred_token=self.config.get("use_pred_token", False),
+            target_name=self.target_name,
         )
 
         # Spawn DDP workers

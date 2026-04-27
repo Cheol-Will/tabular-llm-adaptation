@@ -17,9 +17,11 @@ class LLMBaseline(nn.Module):
     def __init__(
         self,
         model_name: str = "Qwen/Qwen2.5-0.5B",
+        num_columns: int = None,
         num_classes: int = 2,
         task_type: str = "binclass",
         label_token_ids: list[int] | None = None,
+        mlp_ratio: float = 1.0,
     ):
         super().__init__()
         self.task_type = task_type
@@ -73,9 +75,11 @@ class LLMBaselineBidirectional(nn.Module):
     def __init__(
         self,
         model_name: str = "Qwen/Qwen2.5-0.5B",
+        num_columns: int = None,
         num_classes: int = 2,
         task_type: str = "binclass",
         label_token_ids: list[int] | None = None,
+        mlp_ratio: float = 1.0,
     ):
         super().__init__()
         self.task_type = task_type
@@ -133,9 +137,11 @@ class LLMBaselinePooling(nn.Module):
     def __init__(
         self,
         model_name: str = "Qwen/Qwen2.5-0.5B",
+        num_columns: int = None,
         num_classes: int = 2,
         task_type: str = "binclass",
         label_token_ids: list[int] | None = None,
+        mlp_ratio: float = 1.0,
     ):
         super().__init__()
         self.task_type = task_type
@@ -179,9 +185,11 @@ class LLMBaselineBidirectionalPooling(nn.Module):
     def __init__(
         self,
         model_name: str = "Qwen/Qwen2.5-0.5B",
+        num_columns: int = None,
         num_classes: int = 2,
         task_type: str = "binclass",
         label_token_ids: list[int] | None = None,
+        mlp_ratio: float = 1.0,
     ):
         super().__init__()
         self.task_type = task_type

@@ -218,10 +218,18 @@ def _ddp_worker(
         train_dataset,
         batch_size=config.get("batch_size", 128),
         sampler=train_sampler,
+        num_workers=4,
+        pin_memory=True,                
     )
 
     val_loader = (
-        DataLoader(val_dataset, batch_size=config.get("eval_batch_size", 1024), shuffle=False)
+        DataLoader(
+            val_dataset,
+            batch_size=config.get("eval_batch_size", 128), 
+            shuffle=False,
+            num_workers=4,
+            pin_memory=True,                            
+        )
         if rank == 0
         else None
     )
@@ -578,7 +586,12 @@ class LLMSlotImplementation:
     ) -> torch.Tensor:
         try:
             outputs = []
-            loader = DataLoader(TabularDataset(num_tensor, cat_tensor), batch_size=batch_size)
+            loader = DataLoader(
+                TabularDataset(num_tensor, cat_tensor), 
+                batch_size=batch_size,
+                num_workers=4,
+                pin_memory=True,                
+                )
             with torch.no_grad():
                 for batch in loader:
                     batch_num = batch["input_num"]

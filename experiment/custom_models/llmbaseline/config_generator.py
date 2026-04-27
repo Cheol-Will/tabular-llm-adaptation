@@ -21,6 +21,7 @@ _MODEL_CLS_MAP = {
 
 
 def get_experiment_configs(
+        args,
         num_random_configs: int,
         exp_name: str,
         model_cls_name: str = "LLMBaseline",
@@ -45,27 +46,27 @@ def get_experiment_configs(
             "max_length": 128,
             "weight_decay": 1e-5,
             "patience": 16,
-            "project_name": f"{model_cls_name}_{exp_name}", # for wandb
+            "project_name": f"{args.model_cls_name}_{args.exp_name}", # for wandb
         },
     ]
 
     search_space = {
-        "lr": Real(1e-4, 1e-2, log=True),
-        "lora_lr": Real(1e-5, 1e-3, log=True),
+        "lr": Real(1e-4, 5e-3, log=True), # output_proj if exists
+        "lora_lr": Real(1e-5, 1e-4, log=True), # backbone (LoRA)
         "lora_rank": Categorical(4, 8, 16, 32),
         "lora_alpha": Categorical(16, 32, 64),
         "lora_dropout": Real(0.0, 0.2),
         "batch_size": Categorical(64, 128),
         "weight_decay": Real(1e-6, 1e-3, log=True),
         "max_length": Categorical(128),
-        "project_name": f"{model_cls_name}_{exp_name}", # for wandb
+        "project_name": f"{args.model_cls_name}_{args.exp_name}", # for wandb
     }
 
     gen = ConfigGenerator(
         model_cls=model_cls,
         manual_configs=manual_configs,
         search_space=search_space,
-        name=f"LLMBaselineModel_{exp_name}",
+        name=f"{args.model_cls_name}_{args.exp_name}",
     )
     return gen.generate_all_bag_experiments(
         num_random_configs=num_random_configs,
