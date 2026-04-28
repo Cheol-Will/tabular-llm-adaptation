@@ -73,3 +73,23 @@ def get_experiment_configs(
         fold_fitting_strategy="sequential_local",
         method_kwargs=dict(init_kwargs=dict(verbosity=0)),
     )
+
+def get_manual_config(args):
+    manual_configs = [
+        {
+            "model_name": "Qwen/Qwen2.5-0.5B",
+            "num_epochs": 100,
+            "lr": 1e-3,
+            "lora_lr": 5e-4,
+            "lora_rank": 8,
+            "lora_alpha": 32,
+            "lora_dropout": 0.1,
+            "batch_size": 128,
+            "eval_batch_size": 128,
+            "max_length": 128,
+            "weight_decay": 1e-5,
+            "patience": 16,
+            "project_name": f"{args.model_cls_name}_{args.exp_name}", # for wandb
+        },
+    ]
+    return manual_configs
