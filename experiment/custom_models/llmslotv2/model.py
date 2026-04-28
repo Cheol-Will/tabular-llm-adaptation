@@ -11,6 +11,9 @@ from ..layer import (
 
 
 class LLMSlotv2(nn.Module):
+    """
+    Column name embedding is linear combination of text tokens.
+    """
 
     def __init__(
         self,

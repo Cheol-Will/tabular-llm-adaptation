@@ -1,16 +1,3 @@
-"""
-Modular analysis framework for TabArena experiments.
-
-Simple entry point that routes to appropriate analysis functions.
-
-Supports multiple analysis types:
-- hpo: Hyperparameter optimization results aggregation and visualization
-- (more to be added)
-
-Usage:
-    python experiment/analysis.py --analysis_type hpo --model TFMLLM --exp_name results
-"""
-
 from __future__ import annotations
 
 import argparse
