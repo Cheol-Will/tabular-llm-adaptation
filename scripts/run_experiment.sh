@@ -1,23 +1,27 @@
-# model="FTTransformer"
-# model="LLMBaseline"
-
 # exp_name="260420-LLMRead-GradClip"
-# exp_name="260426-BaselineBidir"
-exp_name="260424-next_token_pred"
-model="LLMSlot"
-# model="LLMBaseline"
-# model_cls_name="LLMBaselineBidirectional"
+exp_name="260426-BaselineBidir"
+# exp_name="260424-next_token_pred"
+
+# model="LLMSlot"
+model="LLMBaseline"
+model_cls_name="LLMBaselineBidirectional"
 # model_cls_name="LLMRead"
+
 num_random_configs=10 # for fast experiment
 python experiment/main.py \
     --model $model \
     --exp_name $exp_name \
     --num_random_configs $num_random_configs \
-    --task_ids 363614 # multi-clf
+    --model_cls_name $model_cls_name \
+    --task_ids 363612 363698  # tmux todo
+    # --task_ids 363626 363675 # tmux 2
+    # --task_ids 363621 363625 363629  # tmux 1
+    
+    
+    # --task_ids 363614 # multi-clf 363614 363707
+
     # --task_ids 363626 363675
-    # --model_cls_name $model_cls_name \
     # --task_ids 363612 363698  
-    # --task_ids 363621 363625 363629 
     # --task_ids 
     # --prediction_method next_token_pred \
     # --task_ids 
