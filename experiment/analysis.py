@@ -4,57 +4,9 @@ import argparse
 import os
 from pathlib import Path
 
-from utils import (
-    get_parser,
-    get_model_experiments,
-    filter_data,
-)
+from analysis_utils import analyze_hpo, analyze_reg_dist, analyze_attn_map
+from utils import get_parser
 
-from analysis_utils import analyze_hpo, analyze_reg_dist
-
-def get_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
-        description="Modular analysis framework for TabArena experiments",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-    )
-
-    parser.add_argument(
-        "--analysis_type",
-        type=str,
-        required=True,
-        choices=["hpo", "reg-dist"],
-        help="Type of analysis to perform",
-    )
-
-    parser.add_argument(
-        "--task_id",
-        type=str,
-        default=None,
-        help="Task ID to analyze (required for reg-dist)",
-    )
-
-    parser.add_argument(
-        "--model",
-        type=str,
-        required=True,
-        help="Model name (e.g., TFMLLM, FTTransformer)",
-    )
-
-    parser.add_argument(
-        "--exp_name",
-        type=str,
-        required=True,
-        help="Experiment name (directory under results/)",
-    )
-
-    parser.add_argument(
-        "--output_dir",
-        type=str,
-        default=None,
-        help="Output directory for analysis results (default: evals/{exp_name}/)",
-    )
-
-    return parser
 
 def main():
     """Main entry point - routes to appropriate analysis function."""
@@ -63,13 +15,18 @@ def main():
         "--analysis_type",
         type=str,
         required=True,
-        choices=["hpo", "reg-dist"],
+        choices=["hpo", "reg-dist", "attn-map"],
         help="Type of analysis to perform",
+    )
+    parser.add_argument(
+        "--task_id",
+        type=int,
+        required=True,
     )
     args = parser.parse_args()
 
     # Set up output directory
-    output_dir = Path(__file__).parent / "evals" / args.exp_name
+    output_dir = Path(__file__).parent / "evals" / args.exp_name / "analysis"
 
     os.makedirs(output_dir, exist_ok=True)
 
@@ -94,6 +51,14 @@ def main():
             exp_name=args.exp_name,
             task_id=args.task_ids,
             output_dir=output_dir,
+        )
+    elif args.analysis_type == "attn-map":
+        analyze_attn_map(
+            args=args,
+            model=args.model,
+            exp_name=None,
+            task_id=args.task_id,
+            output_dir=None,
         )
     else:
         raise ValueError(f"Unknown analysis type: {args.analysis_type}")

@@ -626,3 +626,37 @@ class LLMSlotImplementation:
             return raw.squeeze(-1).float().numpy() * self.y_std_ + self.y_mean_
         probas = torch.softmax(raw, dim=-1).float().numpy()
         return probas[:, 1] if self.task_type_ == "binclass" else probas
+    
+    def get_attn_map(self, X: pd.DataFrame) -> torch.Tensor:
+        self._check_is_fitted()
+        self.model.eval()
+        X_num, X_cat, _ = self._prepare_data(X)
+        return self._get_attn_map(X_num, X_cat, self.config.get("eval_batch_size", 1024))
+
+    def _get_attn_map(
+        self,
+        num_tensor: torch.Tensor,
+        cat_tensor: torch.Tensor,
+        batch_size: int,
+    ) -> torch.Tensor:
+        try:
+            attentions = []
+            loader = DataLoader(
+                TabularDataset(num_tensor, cat_tensor), 
+                batch_size=batch_size,
+                num_workers=4,
+                pin_memory=True,                
+                )
+            with torch.no_grad():
+                for batch in loader:
+                    batch_num = batch["input_num"]
+                    batch_cat = batch["input_cat"]
+                    _, attention = self.model(batch_num.to(self.device_), batch_cat.to(self.device_))
+                    attentions.append(attention)
+            return torch.cat(attentions, dim=0)
+        except RuntimeError as e:
+            if "out of memory" in str(e).lower() and batch_size > 1:
+                logger.warning(f"OOM detected, reducing eval batch size: {batch_size} -> {batch_size // 2}")
+                torch.cuda.empty_cache()
+                return self._get_attn_map(num_tensor, cat_tensor, batch_size // 2)
+            raise

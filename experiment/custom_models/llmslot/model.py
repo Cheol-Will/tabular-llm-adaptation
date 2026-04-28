@@ -98,11 +98,6 @@ class LLMSlot(nn.Module):
             x = self.feature_tokenizer(x_num, x_cat)  # (B, N, d_token)
             x = self.mlp_adapter(x)  # (B, N, d_llm)
 
-            # Build interleaved sequence: text embeddings + MLP adapter outputs.
-            # Must use torch.scatter (out-of-place, differentiable) rather than
-            # in-place [:, mask] = ... assignment, which breaks the autograd graph:
-            # x.new_zeros() creates a leaf with requires_grad=False, so in-place
-            # writes from self.prompt / x are not tracked and gradients stop there.
             total_len = self.prompt_mask.shape[0]
             text_indices = (~self.prompt_mask).nonzero(as_tuple=True)[0]  # (T_text,)
             feat_indices = self.prompt_mask.nonzero(as_tuple=True)[0]    # (N,)
@@ -136,3 +131,47 @@ class LLMSlot(nn.Module):
             logits = self.output_proj(pred_hidden)
 
         return logits
+
+    def forward_with_attn(self, x_num: torch.Tensor, x_cat: torch.Tensor):
+        """
+        if self.use_bidir_attn, attention mask is filled with zeros (full attention).
+        """
+        B = x_num.shape[0]
+
+        with autocast(device_type="cuda", dtype=torch.bfloat16):
+            x = self.feature_tokenizer(x_num, x_cat)  # (B, N, d_token)
+            x = self.mlp_adapter(x)  # (B, N, d_llm)
+
+            total_len = self.prompt_mask.shape[0]
+            text_indices = (~self.prompt_mask).nonzero(as_tuple=True)[0]  # (T_text,)
+            feat_indices = self.prompt_mask.nonzero(as_tuple=True)[0]    # (N,)
+
+            text_idx_exp = text_indices.view(1, -1, 1).expand(B, -1, self.llm_dim)
+            feat_idx_exp = feat_indices.view(1, -1, 1).expand(B, -1, self.llm_dim)
+            prompt_exp = self.prompt.to(x.dtype).unsqueeze(0).expand(B, -1, -1)  # (B, T_text, d_llm)
+
+            inputs_embeds = torch.scatter(
+                x.new_zeros(B, total_len, self.llm_dim), 1, text_idx_exp, prompt_exp
+            )
+            inputs_embeds = torch.scatter(inputs_embeds, 1, feat_idx_exp, x)
+
+            attention_mask = None
+            if self.use_bidir_attn:
+                attention_mask = self.get_bidir_attn_mask(total_len)
+                attention_mask = attention_mask.expand(B, -1, -1, -1).to(x.device)
+
+            outputs = self.backbone.model(
+                inputs_embeds=inputs_embeds,
+                attention_mask=attention_mask,
+            )
+            
+            if self.prediction_method == 'next_token_pred':
+                pred_hidden = outputs.last_hidden_state[:,-1,:]  # (B, D)
+            elif self.prediction_method == 'token_pooling':
+                pred_hidden = outputs.last_hidden_state.mean(dim=1)  # (B, D)
+            else:
+                raise ValueError(f"Unknown prediction method: {self.prediction_method}")
+
+            logits = self.output_proj(pred_hidden)
+
+        return logits, outputs["attentions"]

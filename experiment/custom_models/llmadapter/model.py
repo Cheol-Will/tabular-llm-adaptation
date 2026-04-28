@@ -86,3 +86,26 @@ class LLMAdapter(nn.Module):
             logits = self.output_proj(pred_hidden)
 
         return logits
+
+    def forward_with_attn(self, x_num: torch.Tensor, x_cat: torch.Tensor):
+        """
+        if self.use_bidir_attn, you make attention mask filled with zero.
+        """
+
+        with autocast(device_type="cuda", dtype=torch.bfloat16):
+            x = self.feature_tokenizer(x_num, x_cat) # (B, N, d_token)
+            x = self.mlp_adapter(x) # (B, N, d_llm)
+
+            attention_mask = None # default causal mask generated
+            if self.use_bidir_attn:
+                attention_mask = self.get_bidir_attn_mask()
+                attention_mask = attention_mask.expand(x.shape[0], -1, -1, -1).to(x.device)
+            
+            outputs = self.backbone.model(
+                inputs_embeds=x,
+                attention_mask=attention_mask,
+            )
+            pred_hidden = outputs.last_hidden_state.mean(dim=1) # (B, D)
+            logits = self.output_proj(pred_hidden)
+
+        return logits, outputs["attentions"]
