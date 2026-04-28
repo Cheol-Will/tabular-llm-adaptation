@@ -82,14 +82,18 @@ METRIC_ORDER = ["roc_auc", "rmse", "log_loss"]
 CATEGORY_ORDER = ["ML", "DL", "Foundation"]
 
 BOTTOM_METHODS = [
-    "FTTransformer", 
-    "LLMBaseline",
-    "LLMBaselineBidirectional",
-    "LLMBaselineBidirectionalPooling",
-    "TFMLLM", 
-    "LLMAdapterEngineered",
-    "LLMRead260420-LLMRead-GradClip",
+    "FTTransformer",
 ]
+
+
+def is_bottom_method(name: str) -> bool:
+    return name in BOTTOM_METHODS or "llm" in name.lower()
+
+
+def get_method_category(name: str) -> str:
+    if "llm" in name.lower():
+        return "LLM"
+    return METHOD_CATEGORY.get(name, "")
 
 EXCLUDE_BASELINE_SUBSET = [
     "GBM",
@@ -124,12 +128,6 @@ METHOD_CATEGORY: dict[str, str] = {
     "TABDPT_GPU":                           "Foundation",
     "TABPFNV2_GPU":                         "Foundation",
     "FTTransformer":                        "DL",
-    "TFMLLM":                               "LLM",
-    "LLMBaseline":                          "LLM",
-    "LLMBaselineBidirectional":             "LLM",
-    "LLMBaselineBidirectionalPooling":      "LLM",
-    "LLMAdapterEngineered":                 "LLM",
-    "LLMRead260420-LLMRead-GradClip":      "LLM",
 }
 
 # Alias
@@ -225,19 +223,19 @@ def sort_columns_by_metric(columns: pd.Index, dataset_metric_map: pd.Series) -> 
 
 
 def sort_index_bottom_methods(index: pd.Index) -> list[str]:
-    bottom = [m for m in BOTTOM_METHODS if m in index]
-    rest   = sorted([m for m in index if m not in BOTTOM_METHODS])
+    bottom = [m for m in index if is_bottom_method(m)]
+    rest   = sorted([m for m in index if not is_bottom_method(m)])
     return rest + bottom
 
 def sort_index_by_category(index: pd.Index) -> list[str]:
-    """ML -> DL -> Foundation."""
-    bottom = [m for m in BOTTOM_METHODS if m in index]
-    rest   = [m for m in index if m not in BOTTOM_METHODS]
+    """ML -> DL -> Foundation -> (FTTransformer + LLM methods)."""
+    bottom = [m for m in index if is_bottom_method(m)]
+    rest   = [m for m in index if not is_bottom_method(m)]
 
     groups: dict[str, list[str]] = {cat: [] for cat in CATEGORY_ORDER}
     ungrouped = []
     for m in rest:
-        cat = METHOD_CATEGORY.get(m)
+        cat = get_method_category(m)
         if cat in groups:
             groups[cat].append(m)
         else:
@@ -257,6 +255,7 @@ def pivot_main_table(
     dataset_metric_map: pd.Series,
     model: str,
     use_baseline_subset: bool = False,
+    elo_map: dict[str, float] | None = None,
 ) -> pd.DataFrame:
     table_filtered = table[table["method"].str.contains(method_category, regex=False)].copy()
     table_filtered["method"] = table_filtered["method"].apply(clean_method_name)
@@ -287,11 +286,15 @@ def pivot_main_table(
     sorted_idx = sort_index_by_category(pivot.index)
     pivot = pivot.loc[sorted_idx]
 
-    # dataset name alist
+    # dataset name alias
     pivot.columns = [DATASET_ABBREV.get(c, c) for c in pivot.columns]
 
+    # ELO column (last numeric column)
+    if elo_map is not None:
+        pivot["ELO"] = [elo_map.get(m, float("nan")) for m in pivot.index]
+
     # add category column
-    pivot.insert(0, "category", [METHOD_CATEGORY.get(m, "") for m in pivot.index])
+    pivot.insert(0, "category", [get_method_category(m) for m in pivot.index])
 
     # metric row
     abbrev_metric_map = {
@@ -338,10 +341,9 @@ def save_latex(
     escaped_idx  = [escape_latex(str(i)) for i in numeric_df.index]
 
     first_bottom_escaped = None
-    for m in BOTTOM_METHODS:
-        escaped_m = escape_latex(m)
-        if escaped_m in escaped_idx:
-            first_bottom_escaped = escaped_m
+    for raw_m in numeric_df.index:
+        if is_bottom_method(str(raw_m)):
+            first_bottom_escaped = escape_latex(str(raw_m))
             break
 
     numeric_df.columns  = escaped_cols
@@ -352,14 +354,20 @@ def save_latex(
     task_id_row.columns = escaped_cols
     task_id_row.index   = ["task\\_id"]
 
+    has_elo = "ELO" in original_cols
+
     def fmt_cell(val: float, orig_col: str, escaped_col: str) -> str:
         try:
             col_vals = numeric_df[escaped_col].dropna()
-            metric_name = abbrev_metric_map.get(orig_col, "")
-            direction = METRIC_DIRECTION.get(metric_name, "min")
+            if orig_col == "ELO":
+                direction, fmt = "max", ".0f"
+            else:
+                metric_name = abbrev_metric_map.get(orig_col, "")
+                direction = METRIC_DIRECTION.get(metric_name, "min")
+                fmt = ".4f"
             best_val = col_vals.max() if direction == "max" else col_vals.min()
             is_best = float(val) == best_val
-            s = f"{float(val):.4f}"
+            s = format(float(val), fmt)
             return f"\\textbf{{{s}}}" if is_best else s
         except (ValueError, TypeError):
             return str(val)
@@ -372,23 +380,25 @@ def save_latex(
 
     formatted.insert(0, "category", category_col)
 
-    # merge metric columns for visibility
-    metric_groups: list[tuple[str, int]] = []  # (metric_name, count)
+    # merge metric columns for visibility (exclude ELO)
+    dataset_original_cols = [c for c in original_cols if c != "ELO"]
+    metric_groups: list[tuple[str, int]] = []
     for metric_name in METRIC_ORDER:
-        cols_in_group = [c for c in original_cols if abbrev_metric_map.get(c) == metric_name]
+        cols_in_group = [c for c in dataset_original_cols if abbrev_metric_map.get(c) == metric_name]
         if cols_in_group:
             metric_groups.append((metric_name, len(cols_in_group)))
 
     metric_header_cells = ["", ""]  # method, category
     for metric_name, count in metric_groups:
-        # print(metric_name)
         arrow = METRIC_ARROW.get(metric_name)
         metric_header_cells.append(
             f"\\multicolumn{{{count}}}{{c}}{{{escape_latex(metric_name)} (\\{arrow})}}"
         )
+    if has_elo:
+        metric_header_cells.append("\\multicolumn{1}{|c}{\\textbf{ELO} ($\\uparrow$)}")
     metric_header_row = " & ".join(metric_header_cells) + " \\\\"
 
-    # \cmidrule under metric
+    # \cmidrule under metric groups (not ELO)
     cmidrule_parts = []
     col_offset = 3  # method(1) + category(2) + 1-indexed
     for metric_name, count in metric_groups:
@@ -396,10 +406,12 @@ def save_latex(
         col_offset += count
     cmidrule_row = " ".join(cmidrule_parts)
 
-    # set dataset names
+    # dataset name header
     dataset_header_cells = ["\\textbf{Method}", "\\textbf{Type}"] + [
-        f"\\textbf{{{escape_latex(c)}}}" for c in original_cols
+        f"\\textbf{{{escape_latex(c)}}}" for c in dataset_original_cols
     ]
+    if has_elo:
+        dataset_header_cells.append("\\textbf{ELO}")
     dataset_header_row = " & ".join(dataset_header_cells) + " \\\\"
 
     # task_id header row
@@ -407,12 +419,15 @@ def save_latex(
     task_id_header_cells = ["\\textit{task\\_id}", ""] + [
         f"\\textit{{{str(task_id_row.at[_tid_index, escape_latex(c)])}}}"
         if escape_latex(c) in task_id_row.columns else ""
-        for c in original_cols
+        for c in dataset_original_cols
     ]
+    if has_elo:
+        task_id_header_cells.append("")
     task_id_header_row = " & ".join(task_id_header_cells) + " \\\\"
 
     final_df = pd.concat([formatted])
-    col_fmt = "ll|" + "r" * len(escaped_cols)
+    n_dataset_cols = len(dataset_original_cols)
+    col_fmt = "ll|" + "r" * n_dataset_cols + ("|r" if has_elo else "")
 
     body_latex = final_df.to_latex(
         escape=False,
