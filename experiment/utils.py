@@ -40,19 +40,22 @@ def filter_data(args):
     if args.num_data is not None:
         task_ids = task_ids[:args.num_data]
 
-    if args.subset == 'small': # small datasets
+    if args.subset == 'small':
         task_ids =[
+            # binary
             363621,
+            363626,
             363629,
+            # reg
             363698,
-            363685,
+            363612,
             363625,
             363675,
+            # multi-class
             363707,
-            363626, # num_features=21 
-            363614, # num_features=39 OOM on 2 GPUs
-            363696, # num_featrues=42 OOM on 2 GPUS
-        ]
+            # 363614, # OOM
+        ]       
+
     if args.subset == 'small-large-features':
         task_ids = [
         ]
