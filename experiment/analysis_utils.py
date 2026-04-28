@@ -18,7 +18,8 @@ import pandas as pd
 from tabarena.benchmark.models.wrapper.abstract_class import AbstractExecModel
 from autogluon.core.data.label_cleaner import LabelCleanerMulticlassToBinary
 from autogluon.core.models import AbstractModel
-from autogluon.core.models.wrapper.ag_model import AGModelWrapper
+from tabarena.benchmark.models.wrapper.ag_model import AGModelWrapper
+# from autogluon.core.models.wrapper.ag_model import AGModelWrapper
 
 from tabarena.utils.pickle_utils import fetch_all_pickles
 from tabarena.benchmark.task.openml import OpenMLS3TaskWrapper, OpenMLTaskWrapper
@@ -509,7 +510,7 @@ def analyze_attn_map(
     
     # construct experiment
     # model_experiments = get_model_experiments(args, model, exp_name, num_random_configs=0, model_cls_name=model_cls_name)
-    module_path = f"custom_models.{model.lower()}.warpper"
+    module_path = f"custom_models.{model.lower()}.wrapper"
     config_module = importlib.import_module(module_path)
     model_cls = getattr(config_module, f"{args.model}Model")
     
