@@ -4,6 +4,12 @@ import argparse
 import os
 from pathlib import Path
 
+from utils import (
+    get_parser,
+    get_model_experiments,
+    filter_data,
+)
+
 from analysis_utils import analyze_hpo, analyze_reg_dist
 
 def get_parser() -> argparse.ArgumentParser:
@@ -53,13 +59,17 @@ def get_parser() -> argparse.ArgumentParser:
 def main():
     """Main entry point - routes to appropriate analysis function."""
     parser = get_parser()
+    parser.add_argument(
+        "--analysis_type",
+        type=str,
+        required=True,
+        choices=["hpo", "reg-dist"],
+        help="Type of analysis to perform",
+    )
     args = parser.parse_args()
 
     # Set up output directory
-    if args.output_dir:
-        output_dir = Path(args.output_dir)
-    else:
-        output_dir = Path(__file__).parent / "evals" / args.exp_name
+    output_dir = Path(__file__).parent / "evals" / args.exp_name
 
     os.makedirs(output_dir, exist_ok=True)
 
@@ -77,12 +87,12 @@ def main():
             output_dir=output_dir,
         )
     elif args.analysis_type == "reg-dist":
-        if args.task_id is None:
-            raise ValueError("--task_id is required for reg-dist analysis")
+        if args.task_ids is None:
+            raise ValueError("--task_ids is required for reg-dist analysis")
         analyze_reg_dist(
             model=args.model,
             exp_name=args.exp_name,
-            task_id=args.task_id,
+            task_id=args.task_ids,
             output_dir=output_dir,
         )
     else:

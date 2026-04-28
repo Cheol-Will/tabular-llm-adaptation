@@ -11,7 +11,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
+from utils import get_model_experiments
 from tabarena.utils.pickle_utils import fetch_all_pickles
+from tabarena.benchmark.task.openml import OpenMLS3TaskWrapper, OpenMLTaskWrapper
 
 
 EXCLUDE_KEYS = {"ag_args_ensemble", "ag_args_fit", "gpu_ids"}
@@ -434,3 +436,45 @@ def analyze_reg_dist(
     plt.savefig(out_path, dpi=150)
     plt.close(fig)
     print(f"\n[SAVED] {out_path}")
+
+
+def analyze_attn_map(
+    args,
+    model: str,
+    exp_name: str,
+    task_id: str,
+    output_dir: Path,
+    model_cls_name: str = None,
+) -> None:
+    
+    # construct experiment
+    model_experiments = get_model_experiments(args, model, exp_name, num_random_configs=0, model_cls_name=model_cls_name)
+    for model_experiment in model_experiments:
+        
+        # train-test
+        task = OpenMLS3TaskWrapper.from_task_id(
+            task_id=task_id,
+            # s3_dataset_cache=s3_kwargs["dataset_cache"],
+        )
+        out = model_experiment.run(
+            task=task_id,
+            fold=[0,0],
+            ignore_cache=False,
+            debug_mode=False,
+        )
+
+    
+        # extract attn map
+
+
+    # load dataset
+    # 
+    # define model with default hp config
+    # 
+    # train the model
+    # 
+    # extract attn map following model types.
+    # 
+    # Note that plotting logic is different for each model.    
+    
+    return
