@@ -26,6 +26,7 @@ from tabarena.benchmark.task.openml import OpenMLS3TaskWrapper, OpenMLTaskWrappe
 
 from utils import get_model_experiments
 from custom_models.llmadapter.wrapper import LLMAdapterModel
+from custom_models.llmbaseline.wrapper import LLMBaselineModel
 
 EXCLUDE_KEYS = {"ag_args_ensemble", "ag_args_fit", "gpu_ids"}
 CONTINUOUS_HPS = {"dropout", "lora_dropout", "lora_lr", "lr", "weight_decay"}
@@ -517,10 +518,11 @@ def analyze_attn_map(
 
     config_module = importlib.import_module(f"custom_models.{model.lower()}.config_generator")
     hyperparameters = config_module.get_manual_config(args)
-
-    ag_model = LLMAdapterModel(
+    print(hyperparameters)
+    # LLMBaselineModel
+    ag_model = LLMBaselineModel(
         path="",
-        name="LLMAdapterModel",
+        # name="LLMAdapterModel",
         problem_type=task.problem_type,
         eval_metric=task.eval_metric,
         hyperparameters=hyperparameters,

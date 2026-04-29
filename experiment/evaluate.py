@@ -107,14 +107,15 @@ def summary_evaluate(args):
     methods = [
         "FTTransformer",
         "LLMBaseline",
-        # "LLMBaselineBidirectional",
-        # "LLMBaselineBidirectionalPooling",
-        # ("LLMRead260420-LLMRead-GradClip", "260420-LLMRead-GradClip"),
+        ("LLMBaselineBidirectional260426-BaselineBidir", "260426-BaselineBidir"), # Token-Bidir
         ("LLMAdapter260421-3", "260421-3"), # NumEmb-Causal
         ("LLMAdapter260423-bidir", "260423-bidir"), # NumEmb-Bidir
         ("LLMSlot260424-next_token_pred", "260424-next_token_pred"), # Token-NumEmb-Causal
-        ("LLMBaselineBidirectional260426-BaselineBidir", "260426-BaselineBidir"), # Token-Bidir
         # (args.model, args.exp_name),
+        # "LLMBaselineBidirectional",
+        # "LLMBaselineBidirectionalPooling",
+        # ("LLMRead260420-LLMRead-GradClip", "260420-LLMRead-GradClip"),
+
     ]
 
     end_to_end = EndToEnd.from_cache(
