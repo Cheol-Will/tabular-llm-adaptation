@@ -56,9 +56,9 @@ def main():
         analyze_attn_map(
             args=args,
             model=args.model,
-            exp_name=None,
+            exp_name=args.exp_name,
             task_id=args.task_id,
-            output_dir=None,
+            output_dir=output_dir,
         )
     else:
         raise ValueError(f"Unknown analysis type: {args.analysis_type}")

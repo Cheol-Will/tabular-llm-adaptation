@@ -25,6 +25,7 @@ from tabarena.utils.pickle_utils import fetch_all_pickles
 from tabarena.benchmark.task.openml import OpenMLS3TaskWrapper, OpenMLTaskWrapper
 
 from utils import get_model_experiments
+from custom_models.llmadapter.wrapper import LLMAdapterModel
 
 EXCLUDE_KEYS = {"ag_args_ensemble", "ag_args_fit", "gpu_ids"}
 CONTINUOUS_HPS = {"dropout", "lora_dropout", "lora_lr", "lr", "weight_decay"}
@@ -493,7 +494,7 @@ def plot_attn_map(
     for i in range(N):
         attention = attentions[i] # (L, H, F, F)
         attention = attention.mean(dim=1) # (L, F, F)
-        path = output_dir / f"{args.model}_attn_test{i}.csv"
+        path = output_dir / f"{args.model}_attn_test{i}.png"
         _plot_attn_map(attention, path)    
     
     print(f"Plot saved into {path}")
@@ -507,57 +508,62 @@ def analyze_attn_map(
     output_dir: Path,
     model_cls_name: str = None,
 ) -> None:
-    
-    # construct experiment
-    # model_experiments = get_model_experiments(args, model, exp_name, num_random_configs=0, model_cls_name=model_cls_name)
-    module_path = f"custom_models.{model.lower()}.wrapper"
-    config_module = importlib.import_module(module_path)
-    model_cls = getattr(config_module, f"{args.model}Model")
-    
-    module_path = f"custom_models.{model.lower()}.config_generator"
-    config_module = importlib.import_module(module_path)
-    hyperparameters = getattr(config_module, "get_manual_config")
+    import os
 
-    model_experiment = AGModelWrapperAnalysis(model_cls, hyperparameters)
-    task = OpenMLS3TaskWrapper.from_task_id(
-        task_id=task_id,
-        # s3_dataset_cache=s3_kwargs["dataset_cache"],
-    )
+    task = OpenMLTaskWrapper.from_task_id(task_id=task_id)
     X, y, X_test, y_test = task.get_train_test_split(fold=0, repeat=0, sample=0)
-    X_test, y_test = X_test.iloc[:10,], y_test.iloc[:10,]
-    model_experiment.fit(X, y, X_test, y_test)
-    attentions = model_experiment.get_attn_map(X_test) # (N, L, H, F, F)
-    plot_attn_map(attentions)
+    X_test = X_test.iloc[:10]
+    y_test = y_test.iloc[:10]
+
+    config_module = importlib.import_module(f"custom_models.{model.lower()}.config_generator")
+    hyperparameters = config_module.get_manual_config(args)
+
+    ag_model = LLMAdapterModel(
+        path="",
+        name="LLMAdapterModel",
+        problem_type=task.problem_type,
+        eval_metric=task.eval_metric,
+        hyperparameters=hyperparameters,
+    )
+    ag_model.fit(X=X, y=y, X_val=X_test, y_val=y_test)
+
+    attentions = ag_model.get_attn_map(X_test)  # (N, L, H, F, F)
+
+    if output_dir is not None:
+        os.makedirs(output_dir, exist_ok=True)
+        plot_attn_map(args, attentions, Path(output_dir))
 
 
-class AGModelWrapperAnalysis(AGModelWrapper):
-    def __init__(self, model_cls: Type[AbstractModel], hyperparameters: dict = None, **kwargs):
-        super().__init__(**kwargs)
+# class AGModelWrapperAnalysis(AGModelWrapper):
+#     def __init__(self, model_cls: Type[AbstractModel], hyperparameters: dict = None, **kwargs):
+#         super().__init__(model_cls, hyperparameters, **kwargs)
 
-        self.model_cls = model_cls
-        if hyperparameters is None:
-            hyperparameters = {}
-        self.hyperparameters = hyperparameters
+#         self.model_cls = model_cls
+#         if hyperparameters is None:
+#             hyperparameters = {}
+#         self.hyperparameters = hyperparameters
 
-    def _fit(self, X: pd.DataFrame, y: pd.Series, **kwargs):
-        self.model = self.model_cls(
-            path="",
-            name=self.model_cls.__name__,
-            problem_type=self.problem_type,
-            eval_metric=self.eval_metric,
-            hyperparameters=self.hyperparameters,
-        )
-        self.model.fit(
-            X=X,
-            y=y,
-        )
+#     def _fit(self, X: pd.DataFrame, y: pd.Series, X_val, y_val, **kwargs):
+#         self.model = self.model_cls(
+#             path="",
+#             name=self.model_cls.__name__,
+#             problem_type=self.problem_type,
+#             eval_metric=self.eval_metric,
+#             hyperparameters=self.hyperparameters,
+#         )
+#         self.model.fit(
+#             X=X,
+#             y=y,
+#             X_val=X_val,
+#             y_val=y_val,
+#         )
     
-    def fit(self, X: pd.DataFrame, y: pd.Series, X_val=None, y_val=None):
-        X, y = self._preprocess_fit_transform(X=X, y=y)
-        if X_val is not None:
-            X_val = self.transform_X(X_val)
-            y_val = self.transform_y(y_val)
-        return self._fit(X=X, y=y, X_val=X_val, y_val=y_val)
+#     def fit(self, X: pd.DataFrame, y: pd.Series, X_val=None, y_val=None):
+#         X, y = self._preprocess_fit_transform(X=X, y=y)
+#         if X_val is not None:
+#             X_val = self.transform_X(X_val)
+#             y_val = self.transform_y(y_val)
+#         return self._fit(X=X, y=y, X_val=X_val, y_val=y_val)
     
-    def get_attn_map(self, X: pd.DataFrame):
-        return self.model.get_attn_map(X) # (N, L, H, F, F)
+#     def get_attn_map(self, X: pd.DataFrame):
+#         return self.model.get_attn_map(X) # (N, L, H, F, F)
