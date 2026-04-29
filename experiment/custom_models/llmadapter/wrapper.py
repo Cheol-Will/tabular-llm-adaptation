@@ -92,6 +92,10 @@ class LLMAdapterModel(AbstractModel):
                 time_to_fit_in_seconds=time_to_fit
             )
         
+    def get_attn_map(self, X: pd.DataFrame, **kwargs) -> "torch.Tensor":
+        X = self.preprocess(X, **kwargs)
+        return self.model.get_attn_map(X)
+
     def _predict_proba(self, X: pd.DataFrame, **kwargs) -> pd.DataFrame:
         X = self.preprocess(X, **kwargs)
         preds = self.model.predict_raw(X)
