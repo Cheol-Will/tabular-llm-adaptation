@@ -55,13 +55,18 @@ class LLMAdapter(nn.Module):
         
         self.use_bidir_attn = use_bidir_attn
         self.num_features = num_num_features + len(cardinalities) # num columns
+        print(f"use_bidir_attn={self.use_bidir_attn}")
 
     def reset_parameters(self):
         # nn.init.kaiming_uniform_(self.pos_embedding)
         pass
 
-    def get_bidir_attn_mask(self):
-        return torch.full((1, 1, self.num_features, self.num_features), 0)
+    def get_bidir_attn_mask(self, x):
+        B, N = x.shape[0], x.shape[1]
+        bidir_mask = torch.zeros(B, 1, N, N, dtype=x.dtype, device=x.device)
+        attention_mask = {"full_attention": bidir_mask}
+
+        return attention_mask
         
   
     def forward(self, x_num: torch.Tensor, x_cat: torch.Tensor):
@@ -75,9 +80,8 @@ class LLMAdapter(nn.Module):
 
             attention_mask = None # default causal mask generated
             if self.use_bidir_attn:
-                attention_mask = self.get_bidir_attn_mask()
-                attention_mask = attention_mask.expand(x.shape[0], -1, -1, -1).to(x.device)
-            
+                attention_mask = self.get_bidir_attn_mask(x)
+
             outputs = self.backbone.model(
                 inputs_embeds=x,
                 attention_mask=attention_mask,
@@ -91,19 +95,22 @@ class LLMAdapter(nn.Module):
         """
         if self.use_bidir_attn, you make attention mask filled with zero.
         """
-
+        print(f"[DEBUG] self.use_bidir_attn={self.use_bidir_attn}")
         with autocast(device_type="cuda", dtype=torch.bfloat16):
             x = self.feature_tokenizer(x_num, x_cat) # (B, N, d_token)
             x = self.mlp_adapter(x) # (B, N, d_llm)
 
             attention_mask = None # default causal mask generated
             if self.use_bidir_attn:
-                attention_mask = self.get_bidir_attn_mask()
-                attention_mask = attention_mask.expand(x.shape[0], -1, -1, -1).to(x.device)
+                attention_mask = self.get_bidir_attn_mask(x)
+                # print(attention_mask)
+                # print(attention_mask["full_attention"])
+                # attention_mask = attention_mask.expand(x.shape[0], -1, -1, -1).to(x.device)
             
             outputs = self.backbone.model(
                 inputs_embeds=x,
                 attention_mask=attention_mask,
+                output_attentions=True,
             )
             pred_hidden = outputs.last_hidden_state.mean(dim=1) # (B, D)
             logits = self.output_proj(pred_hidden)

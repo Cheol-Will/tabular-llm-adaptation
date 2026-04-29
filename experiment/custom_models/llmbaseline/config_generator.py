@@ -46,6 +46,7 @@ def get_experiment_configs(
             "max_length": 128,
             "weight_decay": 1e-5,
             "patience": 16,
+            "use_bidir_attn": args.use_bidir_attn,
             "project_name": f"{args.model_cls_name}_{args.exp_name}", # for wandb
         },
     ]
@@ -59,6 +60,7 @@ def get_experiment_configs(
         "batch_size": Categorical(64, 128),
         "weight_decay": Real(1e-6, 1e-3, log=True),
         "max_length": Categorical(128),
+        "use_bidir_attn": args.use_bidir_attn,
         "project_name": f"{args.model_cls_name}_{args.exp_name}", # for wandb
     }
 
@@ -75,8 +77,7 @@ def get_experiment_configs(
     )
 
 def get_manual_config(args):
-    manual_configs = [
-        {
+    manual_configs = {
             "model_name": "Qwen/Qwen2.5-0.5B",
             "num_epochs": 100,
             "lr": 1e-3,
@@ -89,7 +90,7 @@ def get_manual_config(args):
             "max_length": 128,
             "weight_decay": 1e-5,
             "patience": 16,
+            "use_bidir_attn": args.use_bidir_attn,
             "project_name": f"{args.model_cls_name}_{args.exp_name}", # for wandb
-        },
-    ]
+        }
     return manual_configs

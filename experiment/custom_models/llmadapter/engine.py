@@ -187,7 +187,9 @@ def _ddp_worker(
         num_embedding_type=config.get("num_embedding_type", "plr"),
         token_dim=config.get("token_dim", 16),
         num_classes=n_classes,
-        mlp_ratio=config.get("mlp_ratio", 1.0)
+        mlp_ratio=config.get("mlp_ratio", 1.0),
+        # mlp_fine_tune=config.get("mlp_fine_tune", False),
+        use_bidir_attn=config.get("use_bidir_attn", False),
     ).to(device)
     model = get_peft_model(model, lora_config)
     
@@ -317,7 +319,7 @@ def _ddp_worker(
                 epoch_iter.set_postfix({
                     "loss": f"{avg_loss:.4f}",
                     "val_score": f"{val_score:.4f}",
-                    "best_best_score": f"{best_val_score:.4f}",
+                    "best_val_score": f"{best_val_score:.4f}",
                     "metric_val": f"{metric_val:.4f}",
                 })
             logger.info(f"Epoch {epoch:03d}: Val Score = {val_score:.4f} (Best: {best_val_score:.4f})")
@@ -535,6 +537,7 @@ class TFMLLMImplementation:
             token_dim=self.config.get("token_dim", 16),
             num_classes=self.n_classes_,
             mlp_ratio=self.config.get("mlp_ratio", 1.0),
+            use_bidir_attn=self.config.get("use_bidir_attn", False),
         ).to(self.device_)
         self.model = get_peft_model(self.model, lora_config)
         if os.path.exists(model_save_path):
@@ -604,18 +607,31 @@ class TFMLLMImplementation:
         try:
             attentions = []
             loader = DataLoader(
-                TabularDataset(num_tensor, cat_tensor), 
+                TabularDataset(num_tensor, cat_tensor),
                 batch_size=batch_size,
                 num_workers=4,
-                pin_memory=True,                
-                )
+                pin_memory=True,
+            )
+            base_model = self.model.base_model.model
+            base_model.backbone.model.set_attn_implementation('eager')
+
             with torch.no_grad():
                 for batch in loader:
                     batch_num = batch["input_num"]
                     batch_cat = batch["input_cat"]
-                    _, attention = self.model(batch_num.to(self.device_), batch_cat.to(self.device_))
-                    attentions.append(attention)
-            return torch.cat(attentions, dim=0)
+                    _, attention = base_model.forward_with_attn(
+                        batch_num.to(self.device_), batch_cat.to(self.device_)
+                    )
+                    # attention: tuple of L tensors, each (B, H, F, F); move to CPU immediately
+                    attentions.append(tuple(a.cpu() for a in attention))
+            
+            base_model.backbone.model.set_attn_implementation('sdpa')
+            
+            # stack into (N, L, H, F, F)
+            L = len(attentions[0])
+            per_layer = [torch.cat([a[l] for a in attentions], dim=0) for l in range(L)]
+            
+            return torch.stack(per_layer, dim=1)
         except RuntimeError as e:
             if "out of memory" in str(e).lower() and batch_size > 1:
                 logger.warning(f"OOM detected, reducing eval batch size: {batch_size} -> {batch_size // 2}")

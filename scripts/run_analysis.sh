@@ -21,19 +21,17 @@
 # task_id=363675
 # task_id=363625
 # exp_name="260320-num_emb"
-
+task_id=363612
+exp_name="260429-bidir"
+# model="LLMAdapter"
+model="LLMBaseline"
 analysis_type="attn-map"
 # exp_name="260401-2-engineering"
-exp_name="260421-3"
-# exp_name="260423-bidir"
 # model="LLMAdapterEngineered"
 # model="LLMAdapterReg"
-model="LLMAdapter"
-task_id=363621
 
 python experiment/analysis.py \
     --model $model \
     --exp_name $exp_name \
-    --analysis_type $analysis_type \
-    --task_id $task_id
-    # --analysis_type reg-dist \
+    --task_id $task_id \
+    --use_bidir_attn

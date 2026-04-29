@@ -1,22 +1,27 @@
 \begin{table}[htbp]
 \centering
 \resizebox{\textwidth}{!}{%
-\begin{tabular}{ll|rrrrrrr}
+\begin{tabular}{ll|rrrrrrrrr|r}
 \toprule
- &  & \multicolumn{3}{c}{roc\_auc (\uparrow)} & \multicolumn{4}{c}{rmse (\downarrow)} \\
-\cmidrule(lr){3-5} \cmidrule(lr){6-9}
-\textbf{Method} & \textbf{Type} & \textbf{Blood} & \textbf{Credit-G} & \textbf{Diabetes} & \textbf{QSAR-Fish} & \textbf{Airfoil} & \textbf{Concrete} & \textbf{Insurance} \\
+ &  & \multicolumn{3}{c}{roc\_auc (\uparrow)} & \multicolumn{4}{c}{rmse (\downarrow)} & \multicolumn{2}{c}{log\_loss (\downarrow)} & \multicolumn{1}{|c}{\textbf{ELO} ($\uparrow$)} \\
+\cmidrule(lr){3-5} \cmidrule(lr){6-9} \cmidrule(lr){10-11}
+\textbf{Method} & \textbf{Type} & \textbf{Blood} & \textbf{Credit-G} & \textbf{Diabetes} & \textbf{QSAR-Fish} & \textbf{Airfoil} & \textbf{Concrete} & \textbf{Insurance} & \textbf{Anneal} & \textbf{Phishing} & \textbf{ELO} \\
+\textit{task\_id} &  & \textit{363621} & \textit{363626} & \textit{363629} & \textit{363698} & \textit{363612} & \textit{363625} & \textit{363675} & \textit{363614} & \textit{363707} &  \\
 \midrule
 \midrule
-CAT & ML & 0.7078 & 0.7914 & 0.8392 & 0.9108 & 1.1943 & 4.3493 & 4099.4151 \\
-EBM & ML & 0.7111 & 0.7851 & \textbf{0.8519} & 0.9339 & 1.8231 & 4.3780 & 4058.6073 \\
-KNN & ML & 0.7039 & 0.7679 & 0.8227 & 0.9347 & 2.2261 & 6.0604 & 4601.1373 \\
-LR & ML & \textbf{0.7539} & 0.7653 & 0.8264 & 0.9769 & 4.7351 & 7.9030 & 5578.9390 \\
-REALMLP\_GPU & DL & 0.7298 & \textbf{0.7925} & 0.8459 & 0.9015 & 1.0119 & 4.1414 & 4071.1784 \\
-REALTABPFN-V2.5 & Foundation & 0.7304 & 0.7812 & 0.8432 & \textbf{0.8867} & \textbf{0.8704} & \textbf{3.7666} & \textbf{4030.7247} \\
-LLMSlot260424-next\_token\_pred &  & 0.7202 & 0.7744 & 0.8320 & 0.9417 & 1.0459 & 4.6248 & 4036.6501 \\
+CAT & ML & 0.7078 & 0.7914 & 0.8392 & 0.9108 & 1.1943 & 4.3493 & 4099.4151 & 0.0285 & 0.2107 & 1428 \\
+EBM & ML & 0.7111 & 0.7851 & \textbf{0.8519} & 0.9339 & 1.8231 & 4.3780 & 4058.6073 & 0.0504 & 0.2358 & 1310 \\
+KNN & ML & 0.7039 & 0.7679 & 0.8227 & 0.9347 & 2.2261 & 6.0604 & 4601.1373 & 0.0773 & 0.2645 & 967 \\
+LR & ML & \textbf{0.7539} & 0.7653 & 0.8264 & 0.9769 & 4.7351 & 7.9030 & 5578.9390 & 0.0543 & 0.3364 & 996 \\
+REALMLP\_GPU & DL & 0.7298 & \textbf{0.7925} & 0.8459 & 0.9015 & 1.0119 & 4.1414 & 4071.1784 & 0.0300 & 0.2129 & 1600 \\
+REALTABPFN-V2.5 & Foundation & 0.7304 & 0.7812 & 0.8432 & \textbf{0.8867} & \textbf{0.8704} & \textbf{3.7666} & \textbf{4030.7247} & \textbf{0.0106} & \textbf{0.2031} & \textbf{1706} \\
 \midrule
-FTTransformer & DL & 0.7160 & 0.7786 & 0.8275 & 1.0236 & 3.1313 & 6.2631 & 4328.3794 \\
+FTTransformer & DL & 0.7160 & 0.7786 & 0.8275 & 1.0236 & 3.1313 & 6.2631 & 4328.3794 & 0.0363 & 0.2247 & 1095 \\
+LLMAdapter260421-3 & LLM & 0.7210 & 0.7878 & 0.8363 & 0.9347 & 1.0600 & 4.7350 & 4037.7904 & 0.0953 & nan & 1260 \\
+LLMAdapter260423-bidir & LLM & 0.7242 & 0.7871 & 0.8414 & 0.9388 & 1.1047 & 4.7227 & 4039.2397 & 0.1456 & nan & 1264 \\
+LLMBaseline & LLM & 0.7094 & 0.7855 & 0.7898 & 1.0715 & nan & 8.5134 & 5838.9975 & 0.0526 & 0.2451 & 1000 \\
+LLMBaselineBidirectional260426-BaselineBidir & LLM & 0.6761 & 0.7455 & 0.7845 & 0.9967 & 1.6478 & 4.9436 & 4343.2928 & nan & nan & 927 \\
+LLMSlot260424-next\_token\_pred & LLM & 0.7202 & 0.7744 & 0.8320 & 0.9417 & 1.0459 & 4.6248 & 4036.6501 & 0.1595 & 0.2411 & 1222 \\
 \bottomrule
 \end{tabular}
 }

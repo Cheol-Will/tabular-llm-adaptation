@@ -44,21 +44,21 @@ def main():
             output_dir=output_dir,
         )
     elif args.analysis_type == "reg-dist":
-        if args.task_id is None:
-            raise ValueError("--task_id is required for reg-dist analysis")
+        if args.task_ids is None:
+            raise ValueError("--task_ids is required for reg-dist analysis")
         analyze_reg_dist(
             model=args.model,
             exp_name=args.exp_name,
-            task_id=args.task_id,
+            task_id=args.task_ids,
             output_dir=output_dir,
         )
     elif args.analysis_type == "attn-map":
         analyze_attn_map(
             args=args,
             model=args.model,
-            exp_name=None,
+            exp_name=args.exp_name,
             task_id=args.task_id,
-            output_dir=None,
+            output_dir=output_dir,
         )
     else:
         raise ValueError(f"Unknown analysis type: {args.analysis_type}")
