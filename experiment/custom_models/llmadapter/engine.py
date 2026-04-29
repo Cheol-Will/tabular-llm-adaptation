@@ -319,7 +319,7 @@ def _ddp_worker(
                 epoch_iter.set_postfix({
                     "loss": f"{avg_loss:.4f}",
                     "val_score": f"{val_score:.4f}",
-                    "best_best_score": f"{best_val_score:.4f}",
+                    "best_val_score": f"{best_val_score:.4f}",
                     "metric_val": f"{metric_val:.4f}",
                 })
             logger.info(f"Epoch {epoch:03d}: Val Score = {val_score:.4f} (Best: {best_val_score:.4f})")
@@ -537,6 +537,7 @@ class TFMLLMImplementation:
             token_dim=self.config.get("token_dim", 16),
             num_classes=self.n_classes_,
             mlp_ratio=self.config.get("mlp_ratio", 1.0),
+            use_bidir_attn=self.config.get("use_bidir_attn", False),
         ).to(self.device_)
         self.model = get_peft_model(self.model, lora_config)
         if os.path.exists(model_save_path):

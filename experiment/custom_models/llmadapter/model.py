@@ -55,6 +55,7 @@ class LLMAdapter(nn.Module):
         
         self.use_bidir_attn = use_bidir_attn
         self.num_features = num_num_features + len(cardinalities) # num columns
+        print(f"use_bidir_attn={self.use_bidir_attn}")
 
     def reset_parameters(self):
         # nn.init.kaiming_uniform_(self.pos_embedding)
@@ -80,7 +81,6 @@ class LLMAdapter(nn.Module):
             attention_mask = None # default causal mask generated
             if self.use_bidir_attn:
                 attention_mask = self.get_bidir_attn_mask(x)
-                # attention_mask = attention_mask.expand(x.shape[0], -1, -1, -1).to(x.device)
 
             outputs = self.backbone.model(
                 inputs_embeds=x,
@@ -95,7 +95,7 @@ class LLMAdapter(nn.Module):
         """
         if self.use_bidir_attn, you make attention mask filled with zero.
         """
-
+        print(f"[DEBUG] self.use_bidir_attn={self.use_bidir_attn}")
         with autocast(device_type="cuda", dtype=torch.bfloat16):
             x = self.feature_tokenizer(x_num, x_cat) # (B, N, d_token)
             x = self.mlp_adapter(x) # (B, N, d_llm)
@@ -103,7 +103,9 @@ class LLMAdapter(nn.Module):
             attention_mask = None # default causal mask generated
             if self.use_bidir_attn:
                 attention_mask = self.get_bidir_attn_mask(x)
-                attention_mask = attention_mask.expand(x.shape[0], -1, -1, -1).to(x.device)
+                # print(attention_mask)
+                # print(attention_mask["full_attention"])
+                # attention_mask = attention_mask.expand(x.shape[0], -1, -1, -1).to(x.device)
             
             outputs = self.backbone.model(
                 inputs_embeds=x,

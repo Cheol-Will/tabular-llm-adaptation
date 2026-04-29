@@ -21,6 +21,7 @@ class LLMBaseline(nn.Module):
         num_classes: int = 2,
         task_type: str = "binclass",
         label_token_ids: list[int] | None = None,
+        use_bidir_attn: bool = False,
         mlp_ratio: float = 1.0,
     ):
         super().__init__()
@@ -39,55 +40,51 @@ class LLMBaseline(nn.Module):
             model_name,
             torch_dtype=torch.bfloat16,
         )
-        if task_type == "regression":
-            llm_dim = self.backbone.config.hidden_size
-            self.regression_head = nn.Linear(llm_dim, 1)
+        self.llm_dim = self.backbone.config.hidden_size
+        self.output_proj = OutputProj(self.llm_dim, num_classes, mlp_ratio)
+        
+        self.use_bidir_attn = use_bidir_attn
+        print(f"use_bidir_attn={self.use_bidir_attn}")
+
+    def get_bidir_attn_mask(self, input_ids, attention_mask):
+        """
+        Construct bidir attention mask with <PAD>=-inf.
+        """
+        B, S = input_ids.shape
+        bidir_mask = torch.zeros((B, 1, S, S), dtype=torch.bfloat16, device=input_ids.device)
+        pad_mask = (attention_mask == 0)  # (B, S)
+        bidir_mask = bidir_mask.masked_fill(pad_mask[:, None, None, :], float("-inf"))
+        return {"full_attention": bidir_mask}
 
     def forward(
-        self,
-        input_ids: torch.Tensor, # (B, seq_len)
-        attention_mask: torch.Tensor, # (B, seq_len)
-    ) -> torch.Tensor:
-      
-        with autocast(device_type="cuda", dtype=torch.bfloat16):
-            if self.task_type == "regression":
-                outputs = self.backbone(
-                    input_ids=input_ids,
-                    attention_mask=attention_mask,
-                    output_hidden_states=True,
-                )
-                last_hidden = outputs.hidden_states[-1][:, -1, :]  # (B, llm_dim)
-                return self.regression_head(last_hidden.float()).squeeze(-1).float()  # (B,)
-            else:
-                outputs = self.backbone(
-                    input_ids=input_ids,
-                    attention_mask=attention_mask,
-                )
-                last_logits = outputs.logits[:, -1, :].float()  # (B, vocab_size)
-                return last_logits[:, self.label_token_ids]      # (B, n_classes)
-    
-    def forward_with_attn(
         self,
         input_ids: torch.Tensor,
         attention_mask: torch.Tensor,
     ) -> torch.Tensor:
         with autocast(device_type="cuda", dtype=torch.bfloat16):
-            if self.task_type == "regression":
-                outputs = self.backbone(
-                    input_ids=input_ids,
-                    attention_mask=attention_mask,
-                    output_hidden_states=True,
-                )
-                last_hidden = outputs.hidden_states[-1][:, -1, :]  # (B, llm_dim)
-                pred = self.regression_head(last_hidden.float()).squeeze(-1).float()  # (B,)
-            else:
-                outputs = self.backbone(
-                    input_ids=input_ids,
-                    attention_mask=attention_mask,
-                )
-                last_logits = outputs.logits[:, -1, :].float()  # (B, vocab_size)
-                pred = last_logits[:, self.label_token_ids]      # (B, n_classes)
-        return pred, outputs["attentions"]
+            attn = self.get_bidir_attn_mask(input_ids, attention_mask) if self.use_bidir_attn else attention_mask
+            outputs = self.backbone.model(
+                input_ids=input_ids,
+                attention_mask=attn,
+                output_hidden_states=True,
+            )
+            pred_hidden = outputs.last_hidden_state[:, -1, :]
+            logits = self.output_proj(pred_hidden)
+        return logits
+    
+    def forward_with_attn(self, input_ids, attention_mask):
+        with autocast(device_type="cuda", dtype=torch.bfloat16):
+            attn = self.get_bidir_attn_mask(input_ids, attention_mask) if self.use_bidir_attn else attention_mask
+            self.backbone.model.set_attn_implementation('eager')
+
+            outputs = self.backbone.model(
+                input_ids=input_ids,
+                attention_mask=attn,
+                output_attentions=True,
+            )
+            pred_hidden = outputs.last_hidden_state[:, -1, :]
+            logits = self.output_proj(pred_hidden)
+        return logits, outputs.attentions
 
 class LLMBaselineBidirectional(nn.Module):
     """

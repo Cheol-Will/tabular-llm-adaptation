@@ -177,6 +177,7 @@ def _ddp_worker(
         task_type=task_type,
         label_token_ids=label_token_ids,
         mlp_ratio=config.get('mlp_ratio', 1.0),
+        use_bidir_attn=config.get('use_bidir_attn', False),
     ).to(device)
 
     lora_config = LoraConfig(
@@ -538,6 +539,8 @@ class LLMBaselineImplementation:
             num_classes=self.n_classes_,
             task_type=self.task_type_,
             label_token_ids=self.label_token_ids_,
+            mlp_ratio=self.config.get("mlp_ratio", 1.0),
+            use_bidir_attn=self.config.get('use_bidir_attn', False),
         ).to(self.device_)
         self.model = get_peft_model(self.model, lora_config)
         if os.path.exists(model_save_path):
@@ -577,3 +580,50 @@ class LLMBaselineImplementation:
             return raw.squeeze(-1).numpy() * self.y_std_ + self.y_mean_
         probas = torch.softmax(raw, dim=-1).numpy()
         return probas[:, 1] if self.task_type_ == "binclass" else probas
+
+    
+    def get_attn_map(self, X: pd.DataFrame) -> torch.Tensor:
+        self._check_is_fitted()
+        self.model.eval()
+        return self._get_attn_map(X, self.config.get("eval_batch_size", 128))
+
+    def _get_attn_map(self, X: pd.DataFrame, batch_size: int) -> torch.Tensor:
+        try:
+            dataset = self.dataset_cls(
+                X=X, y=None,
+                tokenizer=self.tokenizer,
+                task_type=self.task_type_,
+                labels=None,
+                label_token_ids=self.label_token_ids_,
+                max_length=self.config.get("max_length", 128),
+                y_mean=self.y_mean_,
+                y_std=self.y_std_,
+                use_pred_token=self.config.get("use_pred_token", False),
+                target_name=self.target_name,
+            )
+            loader = DataLoader(dataset, batch_size=batch_size, shuffle=False, num_workers=4, pin_memory=True)
+            base_model = self.model.base_model.model
+            base_model.backbone.model.set_attn_implementation('eager')
+
+            attentions = []
+            with torch.no_grad():
+                for batch in loader:
+                    _, attention = base_model.forward_with_attn(
+                        batch["input_ids"].to(self.device_),
+                        batch["attention_mask"].to(self.device_),
+                    )
+                    # attention: tuple of L tensors, each (B, H, S, S); move to CPU immediately
+                    attentions.append(tuple(a.cpu() for a in attention))
+
+            base_model.backbone.model.set_attn_implementation('sdpa')
+
+            # stack into (N, L, H, S, S)
+            L = len(attentions[0])
+            per_layer = [torch.cat([a[l] for a in attentions], dim=0) for l in range(L)]
+            return torch.stack(per_layer, dim=1)
+        except RuntimeError as e:
+            if "out of memory" in str(e).lower() and batch_size > 1:
+                logger.warning(f"OOM detected, reducing eval batch size: {batch_size} -> {batch_size // 2}")
+                torch.cuda.empty_cache()
+                return self._get_attn_map(X, batch_size // 2)
+            raise
