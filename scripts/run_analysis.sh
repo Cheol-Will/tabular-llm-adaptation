@@ -22,14 +22,18 @@
 # task_id=363625
 # exp_name="260320-num_emb"
 
-analysis_type="hpo"
-exp_name="260401-2-engineering"
+analysis_type="attn-map"
+# exp_name="260401-2-engineering"
+exp_name="260421-3"
+# exp_name="260423-bidir"
 # model="LLMAdapterEngineered"
-model="LLMAdapterReg"
+# model="LLMAdapterReg"
+model="LLMAdapter"
+task_id=363621
 
 python experiment/analysis.py \
-    --analysis_type $analysis_type \
     --model $model \
-    --exp_name $exp_name
-    # --task_id $task_id
+    --exp_name $exp_name \
+    --analysis_type $analysis_type \
+    --task_id $task_id
     # --analysis_type reg-dist \
