@@ -49,11 +49,15 @@
 # exp_name="260423-bidir"
 exp_name="260424-next_token_pred"
 model="LLMSlot"
+# exp_name="260426-BaselineBidir"
+# model="LLMBaselineBidirectional"
 
+# exp_name="260421-3"
 # exp_name="260423-bidir"
 # model="LLMAdapter"
+
 python experiment/evaluate.py \
-    --model "$model$exp_name" \
     --exp_name $exp_name \
-    # --generate_cache
+    --model "$model$exp_name" \
+    # --generate_cache \
     # --model "$model" \
