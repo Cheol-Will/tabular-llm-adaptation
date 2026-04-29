@@ -6,11 +6,13 @@ from __future__ import annotations
 
 from typing import Type
 
+import os
 import importlib
 import pickle
 from pathlib import Path
 
 import matplotlib.pyplot as plt
+import torch
 import numpy as np
 import pandas as pd
 
@@ -462,7 +464,7 @@ def _plot_attn_map(
     fig, axes = plt.subplots(nrows, ncols, figsize=(4 * ncols, 3.5 * nrows))
     axes = np.array(axes).reshape(-1)
 
-    attn_np = attention.cpu().numpy() if hasattr(attention, 'cpu') else np.array(attention)
+    attn_np = attention.cpu().float().numpy() if hasattr(attention, 'cpu') else np.array(attention)
     avg_attn = attn_np.mean(axis=0)
 
     for l in range(L):
@@ -501,6 +503,24 @@ def plot_attn_map(
     print(f"Plot saved into {path}")
     
 
+def sample_indices(y, n=10, random_state=42):
+    if y.nunique() <= 10:  # classification
+        n_per_class = n // y.nunique()
+        result = (
+            y.groupby(y, observed=True)
+             .apply(lambda g: g.sample(min(n_per_class, len(g)), random_state=random_state))
+             .index.get_level_values(-1)
+        )
+        return result
+    else:  # regression
+        bins = pd.qcut(y, q=n, labels=False, duplicates='drop')
+        return (
+            y.groupby(bins)
+             .apply(lambda g: g.sample(1, random_state=random_state))
+             .index.get_level_values(-1)
+        )
+
+
 def analyze_attn_map(
     args,
     model: str,
@@ -509,63 +529,41 @@ def analyze_attn_map(
     output_dir: Path,
     model_cls_name: str = None,
 ) -> None:
-    import os
+    output_dir = output_dir / str(task_id)
+    os.makedirs(output_dir, exist_ok=True) 
 
     task = OpenMLTaskWrapper.from_task_id(task_id=task_id)
     X, y, X_test, y_test = task.get_train_test_split(fold=0, repeat=0, sample=0)
-    X_test = X_test.iloc[:10]
-    y_test = y_test.iloc[:10]
+    idx = sample_indices(y_test)
+    X_test = X_test.loc[idx]
+    y_test = y_test.loc[idx]
+    
+    # load wrapper
+    wrapper_module_path = f"custom_models.{model.lower()}.wrapper"
+    wrapper_module = importlib.import_module(wrapper_module_path)
+    target_model_name = model_cls_name if model_cls_name else f"{model}Model"
+    ModelClass = getattr(wrapper_module, target_model_name)
 
+    # load hp config
     config_module = importlib.import_module(f"custom_models.{model.lower()}.config_generator")
     hyperparameters = config_module.get_manual_config(args)
-    print(hyperparameters)
-    # LLMBaselineModel
-    ag_model = LLMBaselineModel(
-        path="",
-        # name="LLMAdapterModel",
-        problem_type=task.problem_type,
-        eval_metric=task.eval_metric,
-        hyperparameters=hyperparameters,
-    )
-    ag_model.fit(X=X, y=y, X_val=X_test, y_val=y_test)
+    
+    ckpt_path = os.path.join(output_dir, "model.pt")
+    
+    if os.path.exists(ckpt_path):
+        # skip training
+        print(f"Skip fit() and load weights from {ckpt_path}.")
+        ag_model = ModelClass.load(ckpt_path)
+    else:
+        ag_model = ModelClass(
+            path=str(output_dir), 
+            problem_type=task.problem_type,
+            eval_metric=task.eval_metric,
+            hyperparameters=hyperparameters,
+        )
+        ag_model.fit(X=X, y=y, X_val=X_test, y_val=y_test)
+        ag_model.save(ckpt_path)
 
     attentions = ag_model.get_attn_map(X_test)  # (N, L, H, F, F)
 
-    if output_dir is not None:
-        os.makedirs(output_dir, exist_ok=True)
-        plot_attn_map(args, attentions, Path(output_dir))
-
-
-# class AGModelWrapperAnalysis(AGModelWrapper):
-#     def __init__(self, model_cls: Type[AbstractModel], hyperparameters: dict = None, **kwargs):
-#         super().__init__(model_cls, hyperparameters, **kwargs)
-
-#         self.model_cls = model_cls
-#         if hyperparameters is None:
-#             hyperparameters = {}
-#         self.hyperparameters = hyperparameters
-
-#     def _fit(self, X: pd.DataFrame, y: pd.Series, X_val, y_val, **kwargs):
-#         self.model = self.model_cls(
-#             path="",
-#             name=self.model_cls.__name__,
-#             problem_type=self.problem_type,
-#             eval_metric=self.eval_metric,
-#             hyperparameters=self.hyperparameters,
-#         )
-#         self.model.fit(
-#             X=X,
-#             y=y,
-#             X_val=X_val,
-#             y_val=y_val,
-#         )
-    
-#     def fit(self, X: pd.DataFrame, y: pd.Series, X_val=None, y_val=None):
-#         X, y = self._preprocess_fit_transform(X=X, y=y)
-#         if X_val is not None:
-#             X_val = self.transform_X(X_val)
-#             y_val = self.transform_y(y_val)
-#         return self._fit(X=X, y=y, X_val=X_val, y_val=y_val)
-    
-#     def get_attn_map(self, X: pd.DataFrame):
-#         return self.model.get_attn_map(X) # (N, L, H, F, F)
+    plot_attn_map(args, attentions, Path(output_dir))
