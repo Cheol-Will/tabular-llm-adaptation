@@ -76,12 +76,17 @@ class LLMBaseline(nn.Module):
         with autocast(device_type="cuda", dtype=torch.bfloat16):
             attn = self.get_bidir_attn_mask(input_ids, attention_mask) if self.use_bidir_attn else attention_mask
             self.backbone.model.set_attn_implementation('eager')
+            # print("attn_impl:", self.backbone.model.config._attn_implementation)
+            # print("attn layer type:", type(self.backbone.model.layers[0].self_attn))
+            # print("attn mask shape:", attn.shape)
 
             outputs = self.backbone.model(
                 input_ids=input_ids,
                 attention_mask=attn,
                 output_attentions=True,
+                use_cache=False,  # 
             )
+            print(outputs)
             pred_hidden = outputs.last_hidden_state[:, -1, :]
             logits = self.output_proj(pred_hidden)
         return logits, outputs.attentions

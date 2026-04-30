@@ -7,15 +7,17 @@ from run_analysis import load_openml_data
 import argparse
 
     
-def get_response(task_id: int = 363621):
+def get_response(task_id: int = 363621, idx: int = 0):
     X, y, label = load_openml_data(task_id)
     target_name = y.name if y is not None else "target"
-    print(f"X[0]: {X.iloc[0, :]}, {target_name}: {y[0]}")
-
-    # target_name = y.name if y is not None else "target"
-    # texts = serialize_data(X, target_name)
-    # sampled_row = texts[0]
-
+    
+    for i in range(idx):
+        x_dict = X.iloc[i].to_dict() 
+        y_val = y.iloc[i] 
+        
+        print(f"[Sample {i}]")
+        print(f"X: {x_dict}\n")
+        print(f"Target ({target_name}): {y_val}")
 
 def debug_dataset_attn_mask():
     X, y, label = load_openml_data(363621)
@@ -74,11 +76,11 @@ def main():
     # print(args.task_ids)
 
     # debug_dataset_attn_mask()
-    get_response(363621)
-    get_response(363612)
-    get_response(363629)
-    get_response(363671)
-    get_response(363615)
+    get_response(363621, idx=9)
+    # get_response(363612)
+    # get_response(363629)
+    # get_response(363671)
+    # get_response(363615)
     # debug_llmadapter_frozen()
 
 if __name__ == "__main__":

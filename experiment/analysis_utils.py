@@ -15,6 +15,7 @@ import matplotlib.pyplot as plt
 import torch
 import numpy as np
 import pandas as pd
+from transformers import AutoTokenizer
 
 
 from tabarena.benchmark.models.wrapper.abstract_class import AbstractExecModel
@@ -453,13 +454,17 @@ def analyze_reg_dist(
 
 
 def _plot_attn_map(
-    attention,  # (L, F, F)
+    attention,    # (L, F, F)
     path,
+    input_ids=None,   # (S,) optional
+    tokenizer=None,
 ):
-    L = attention.shape[0]
-    n_plots = L + 1
-    ncols = min(4, n_plots)
-    nrows = (n_plots + ncols - 1) // ncols
+    # Only plot 1st layer, last layer, avg
+    layer_indices = [0, attention.shape[0] - 1]
+    layer_labels = [f"Layer 0", f"Layer {attention.shape[0] - 1} (Last)"]
+    n_plots = len(layer_indices) + 1  # + avg
+    ncols = 3
+    nrows = 1
 
     fig, axes = plt.subplots(nrows, ncols, figsize=(4 * ncols, 3.5 * nrows))
     axes = np.array(axes).reshape(-1)
@@ -467,19 +472,33 @@ def _plot_attn_map(
     attn_np = attention.cpu().float().numpy() if hasattr(attention, 'cpu') else np.array(attention)
     avg_attn = attn_np.mean(axis=0)
 
-    for l in range(L):
-        ax = axes[l]
-        im = ax.imshow(attn_np[l], aspect='auto', cmap='viridis')
-        ax.set_title(f"Layer {l}")
-        plt.colorbar(im, ax=ax)
+    # decode token labels — accept either pre-decoded string list (LLMSlot) or token ID tensor (LLMBaseline)
+    if isinstance(input_ids, list) and input_ids and isinstance(input_ids[0], str):
+        tokens = input_ids
+    elif input_ids is not None and tokenizer is not None:
+        tokens = tokenizer.convert_ids_to_tokens(input_ids.tolist())
+    else:
+        tokens = None
 
-    ax = axes[L]
+    def _set_token_ticks(ax, tokens, S):
+        if tokens is not None:
+            ax.set_xticks(range(S))
+            ax.set_xticklabels(tokens, rotation=45, fontsize=5)
+            ax.set_yticks(range(S))
+            ax.set_yticklabels(tokens, rotation=45, fontsize=5)
+
+    for plot_idx, (l, label) in enumerate(zip(layer_indices, layer_labels)):
+        ax = axes[plot_idx]
+        im = ax.imshow(attn_np[l], aspect='auto', cmap='viridis')
+        ax.set_title(label)
+        plt.colorbar(im, ax=ax)
+        _set_token_ticks(ax, tokens, attn_np[l].shape[-1])
+
+    ax = axes[2]
     im = ax.imshow(avg_attn, aspect='auto', cmap='viridis')
     ax.set_title("Avg over Layers")
     plt.colorbar(im, ax=ax)
-
-    for idx in range(L + 1, len(axes)):
-        axes[idx].set_visible(False)
+    _set_token_ticks(ax, tokens, avg_attn.shape[-1])
 
     plt.tight_layout()
     plt.savefig(path, dpi=150, bbox_inches='tight')
@@ -488,20 +507,22 @@ def _plot_attn_map(
 
 def plot_attn_map(
     args,
-    attentions, # (N, L, H, F, F)
+    attentions,   # (N, L, H, S, S)
+    input_ids,    # (N, S) tensor of token IDs, or list[str] of shared sequence labels (LLMSlot)
     output_dir,
+    tokenizer=None,
 ):
-
-    # plot N number of plots with different name
     N = attentions.shape[0]
+    # LLMSlot returns shared string labels for all samples; LLMBaseline returns per-sample token ID tensors
+    shared_labels = isinstance(input_ids, list) and input_ids and isinstance(input_ids[0], str)
     for i in range(N):
-        attention = attentions[i] # (L, H, F, F)
-        attention = attention.mean(dim=1) # (L, F, F)
+        attention = attentions[i].mean(dim=1)  # (L, S, S)
+        ids = input_ids if shared_labels else (input_ids[i] if input_ids is not None else None)
         path = output_dir / f"{args.model}_attn_test{i}.png"
-        _plot_attn_map(attention, path)    
-    
+        _plot_attn_map(attention, path, input_ids=ids, tokenizer=tokenizer)
+
     print(f"Plot saved into {path}")
-    
+
 
 def sample_indices(y, n=10, random_state=42):
     if y.nunique() <= 10:  # classification
@@ -547,13 +568,14 @@ def analyze_attn_map(
     # load hp config
     config_module = importlib.import_module(f"custom_models.{model.lower()}.config_generator")
     hyperparameters = config_module.get_manual_config(args)
-    
-    ckpt_path = os.path.join(output_dir, "model.pt")
+    hyperparameters["num_epochs"] = 30
+    ckpt_path = os.path.join(output_dir, "model")
     
     if os.path.exists(ckpt_path):
         # skip training
         print(f"Skip fit() and load weights from {ckpt_path}.")
         ag_model = ModelClass.load(ckpt_path)
+
     else:
         ag_model = ModelClass(
             path=str(output_dir), 
@@ -564,6 +586,7 @@ def analyze_attn_map(
         ag_model.fit(X=X, y=y, X_val=X_test, y_val=y_test)
         ag_model.save(ckpt_path)
 
-    attentions = ag_model.get_attn_map(X_test)  # (N, L, H, F, F)
+    attentions, inputs = ag_model.get_attn_map(X_test)  # (N, L, H, F, F)
 
-    plot_attn_map(args, attentions, Path(output_dir))
+    tokenizer = AutoTokenizer.from_pretrained("Qwen/Qwen2.5-0.5B", padding_side="left")
+    plot_attn_map(args, attentions, inputs, Path(output_dir), tokenizer)

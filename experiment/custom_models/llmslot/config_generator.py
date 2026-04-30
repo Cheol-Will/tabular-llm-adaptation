@@ -59,3 +59,22 @@ def get_experiment_configs(
         fold_fitting_strategy="sequential_local",
         method_kwargs=dict(init_kwargs=dict(verbosity=0)),
     )
+
+def get_manual_config(args):
+        
+    return {
+            "num_epochs": 100,
+            "token_dim": 32,
+            "lr": 1e-3,
+            "lora_lr": 5e-4,
+            "lora_rank": 8,
+            "lora_alpha": 32,
+            "lora_dropout": 0.1,
+            "mlp_ratio": 1.0,
+            "weight_decay": 1e-5,
+            "batch_size": 128,
+            "mlp_fine_tune": args.mlp_fine_tune,
+            "use_bidir_attn": args.use_bidir_attn,
+            "prediction_method": args.prediction_method,
+            "project_name": f"{args.model}_{args.exp_name}",
+        }

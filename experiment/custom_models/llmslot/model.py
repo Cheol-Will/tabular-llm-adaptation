@@ -163,8 +163,10 @@ class LLMSlot(nn.Module):
             outputs = self.backbone.model(
                 inputs_embeds=inputs_embeds,
                 attention_mask=attention_mask,
+                output_attentions=True,
+                use_cache=False,
             )
-            
+
             if self.prediction_method == 'next_token_pred':
                 pred_hidden = outputs.last_hidden_state[:,-1,:]  # (B, D)
             elif self.prediction_method == 'token_pooling':
@@ -174,4 +176,4 @@ class LLMSlot(nn.Module):
 
             logits = self.output_proj(pred_hidden)
 
-        return logits, outputs["attentions"]
+        return logits, outputs.attentions, {"x_num": x_num, "x_cat": x_cat}

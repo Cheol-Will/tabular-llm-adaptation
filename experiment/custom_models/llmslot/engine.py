@@ -396,6 +396,7 @@ class LLMSlotImplementation:
 
         self.ord_enc_: CustomOrdinalEncoder | None = None
         self.num_prep_: Pipeline | None = None
+        self.label_encoder_: "LabelEncoder | None" = None
         self.cat_col_names_: list[Any] = []
         self.num_col_names_: list[Any] = []
         self.n_classes_: int | None = None
@@ -477,6 +478,20 @@ class LLMSlotImplementation:
         self.num_col_names_ = [c for c in X_train.columns if c not in cat_col_names]
         problem_type = self.config["problem_type"]
         self.task_type_ = "binclass" if problem_type == "binary" else problem_type
+
+        # Encode string/categorical class labels to contiguous integers 0, 1, 2, ...
+        self.label_encoder_ = None
+        if self.task_type_ != "regression":
+            from sklearn.preprocessing import LabelEncoder
+            self.label_encoder_ = LabelEncoder()
+            y_train = pd.Series(
+                self.label_encoder_.fit_transform(y_train.to_numpy().astype(str)),
+                index=y_train.index, name=y_train.name, dtype=np.int64,
+            )
+            y_val = pd.Series(
+                self.label_encoder_.transform(y_val.to_numpy().astype(str)),
+                index=y_val.index, name=y_val.name, dtype=np.int64,
+            )
 
         # Preprocessors
         self.ord_enc_ = CustomOrdinalEncoder()
@@ -627,7 +642,19 @@ class LLMSlotImplementation:
         probas = torch.softmax(raw, dim=-1).float().numpy()
         return probas[:, 1] if self.task_type_ == "binclass" else probas
     
-    def get_attn_map(self, X: pd.DataFrame) -> torch.Tensor:
+    def _build_sequence_labels(self) -> list[str]:
+        model_name = self.config.get("model_name", "Qwen/Qwen2.5-0.5B")
+        tokenizer = AutoTokenizer.from_pretrained(model_name)
+        ordered_cols = self.num_col_names_ + self.cat_col_names_
+        n_feature_cols = len(self.column_ids_) - 1  # last segment is target, no slot after it
+        labels = []
+        for i, ids in enumerate(self.column_ids_):
+            labels.extend(tokenizer.convert_ids_to_tokens(ids))
+            if i < n_feature_cols:
+                labels.append(f"[{ordered_cols[i]}]")
+        return labels
+
+    def get_attn_map(self, X: pd.DataFrame) -> tuple[torch.Tensor, list[str]]:
         self._check_is_fitted()
         self.model.eval()
         X_num, X_cat, _ = self._prepare_data(X)
@@ -638,22 +665,37 @@ class LLMSlotImplementation:
         num_tensor: torch.Tensor,
         cat_tensor: torch.Tensor,
         batch_size: int,
-    ) -> torch.Tensor:
+    ) -> tuple[torch.Tensor, list[str]]:
         try:
-            attentions = []
             loader = DataLoader(
-                TabularDataset(num_tensor, cat_tensor), 
+                TabularDataset(num_tensor, cat_tensor),
                 batch_size=batch_size,
                 num_workers=4,
-                pin_memory=True,                
-                )
+                pin_memory=True,
+            )
+            base_model = self.model.base_model.model
+            base_model.backbone.model.set_attn_implementation('eager')
+
+            attentions = []
             with torch.no_grad():
                 for batch in loader:
-                    batch_num = batch["input_num"]
-                    batch_cat = batch["input_cat"]
-                    _, attention = self.model(batch_num.to(self.device_), batch_cat.to(self.device_))
-                    attentions.append(attention)
-            return torch.cat(attentions, dim=0)
+                    _, attn_tuple, _ = base_model.forward_with_attn(
+                        batch["input_num"].to(self.device_),
+                        batch["input_cat"].to(self.device_),
+                    )
+                    # attn_tuple: L tensors, each (B, H, S, S)
+                    attentions.append(tuple(a.cpu() for a in attn_tuple))
+
+            base_model.backbone.model.set_attn_implementation('sdpa')
+
+            # Stack into (N, L, H, S, S)
+            L = len(attentions[0])
+            per_layer = [torch.cat([a[l] for a in attentions], dim=0) for l in range(L)]
+            attentions_tensor = torch.stack(per_layer, dim=1)
+
+            sequence_labels = self._build_sequence_labels()
+            return attentions_tensor, sequence_labels
+
         except RuntimeError as e:
             if "out of memory" in str(e).lower() and batch_size > 1:
                 logger.warning(f"OOM detected, reducing eval batch size: {batch_size} -> {batch_size // 2}")

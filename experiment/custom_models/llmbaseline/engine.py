@@ -606,6 +606,7 @@ class LLMBaselineImplementation:
             base_model.backbone.model.set_attn_implementation('eager')
 
             attentions = []
+            all_input_ids = []
             with torch.no_grad():
                 for batch in loader:
                     _, attention = base_model.forward_with_attn(
@@ -614,13 +615,18 @@ class LLMBaselineImplementation:
                     )
                     # attention: tuple of L tensors, each (B, H, S, S); move to CPU immediately
                     attentions.append(tuple(a.cpu() for a in attention))
-
+                    all_input_ids.append(batch["input_ids"])
             base_model.backbone.model.set_attn_implementation('sdpa')
 
             # stack into (N, L, H, S, S)
             L = len(attentions[0])
             per_layer = [torch.cat([a[l] for a in attentions], dim=0) for l in range(L)]
-            return torch.stack(per_layer, dim=1)
+            input_ids_tensor = torch.cat(all_input_ids, dim=0)  # (N, S)
+
+            return torch.stack(per_layer, dim=1), input_ids_tensor
+
+
+
         except RuntimeError as e:
             if "out of memory" in str(e).lower() and batch_size > 1:
                 logger.warning(f"OOM detected, reducing eval batch size: {batch_size} -> {batch_size // 2}")
