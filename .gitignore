@@ -1,5 +1,6 @@
 # user defined 
 # bencheval
+*.pt
 tabflow
 tabflow_slurm
 tst
