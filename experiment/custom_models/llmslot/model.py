@@ -85,9 +85,13 @@ class LLMSlot(nn.Module):
     def reset_parameters(self):
         pass
 
-    def get_bidir_attn_mask(self, seq_len: int):
-        return torch.full((1, 1, seq_len, seq_len), 0, dtype=torch.bool)
+    def get_bidir_attn_mask(self, x):
+        B, N = x.shape[0], x.shape[1]
+        bidir_mask = torch.zeros(B, 1, N, N, dtype=x.dtype, device=x.device)
+        attention_mask = {"full_attention": bidir_mask}
 
+        return attention_mask
+        
     def forward(self, x_num: torch.Tensor, x_cat: torch.Tensor):
         """
         if self.use_bidir_attn, attention mask is filled with zeros (full attention).
@@ -113,8 +117,7 @@ class LLMSlot(nn.Module):
 
             attention_mask = None
             if self.use_bidir_attn:
-                attention_mask = self.get_bidir_attn_mask(total_len)
-                attention_mask = attention_mask.expand(B, -1, -1, -1).to(x.device)
+                attention_mask = self.get_bidir_attn_mask(inputs_embeds)
 
             outputs = self.backbone.model(
                 inputs_embeds=inputs_embeds,
@@ -157,8 +160,7 @@ class LLMSlot(nn.Module):
 
             attention_mask = None
             if self.use_bidir_attn:
-                attention_mask = self.get_bidir_attn_mask(total_len)
-                attention_mask = attention_mask.expand(B, -1, -1, -1).to(x.device)
+                attention_mask = self.get_bidir_attn_mask(inputs_embeds)
 
             outputs = self.backbone.model(
                 inputs_embeds=inputs_embeds,
