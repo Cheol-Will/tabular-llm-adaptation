@@ -52,14 +52,10 @@ def get_optimizer(model, config):
     weight_decay = config.get("weight_decay", 1e-5)
     base = model.module.base_model.model
 
-    # Unfreeze before building param groups so requires_grad is already set correctly.
-    # PEFT froze everything except LoRA; re-enable the tabular adapter layers.
     for name, param in model.named_parameters():
         if any(k in name for k in ("feature_tokenizer", "mlp_adapter", "output_proj", "prompt")):
             param.requires_grad_(True)
 
-    # Only include trainable backbone params (LoRA A/B matrices).
-    # Passing frozen weights wastes optimizer iteration over millions of tensors.
     params = [{"params": [p for p in base.backbone.parameters() if p.requires_grad], "lr": lora_lr}]
     if hasattr(base, "feature_tokenizer"):
         params.append({"params": base.feature_tokenizer.parameters(), "lr": lr})
@@ -68,8 +64,7 @@ def get_optimizer(model, config):
     if hasattr(base, "output_proj"):
         params.append({"params": base.output_proj.parameters(), "lr": lr})
     if hasattr(base, "prompt"):
-        # No weight decay: L2 penalty would shrink the soft prompt toward zero.
-        params.append({"params": [base.prompt], "lr": lr, "weight_decay": 0.0})
+        params.append({"params": [base.prompt], "lr": lora_lr, "weight_decay": 0.0})
     if hasattr(base, "read_tokens"):
         params.append({"params": [base.read_tokens], "lr": lr})
     if hasattr(base, "pred_token"):
@@ -197,7 +192,7 @@ def _ddp_worker(
         token_dim=config.get("token_dim", 16),
         num_classes=n_classes,
         mlp_ratio=config.get("mlp_ratio", 1.0),
-        use_bidir_attn=config.get("use_bidir_attn", False),
+        attn_type=config.get("attn_type"),
     ).to(device)
     if column_ids is not None:
         model.create_prompt(column_ids, column_ids_lengths)
@@ -278,6 +273,7 @@ def _ddp_worker(
             model.module, val_loader,
             task_type, y_mean, y_std, early_stopping_metric, device,
         )
+        # best_val_score = float("-inf")
         best_state = {k: v.cpu().clone() for k, v in model.module.state_dict().items()}
         logger.info(f"Epoch 000 (baseline): Val Score = {best_val_score:.4f}")
 
@@ -337,7 +333,7 @@ def _ddp_worker(
                 epoch_iter.set_postfix({
                     "loss": f"{avg_loss:.4f}",
                     "val_score": f"{val_score:.4f}",
-                    "best_best_score": f"{best_val_score:.4f}",
+                    "best_val_score": f"{best_val_score:.4f}",
                     "metric_val": f"{metric_val:.4f}",
                 })
             logger.info(f"Epoch {epoch:03d}: Val Score = {val_score:.4f} (Best: {best_val_score:.4f})")
@@ -375,6 +371,10 @@ def _ddp_worker(
 
         if remaining_patience <= 0:
             logger.info(f"Early stopping at epoch {epoch}.")
+            print(f"Early stopping at epoch {epoch}.")
+            print(remaining_patience)
+            print(val_score)
+            print(best_val_score)
             break
 
     if rank == 0:
@@ -581,7 +581,7 @@ class LLMSlotImplementation:
             token_dim=self.config.get("token_dim", 16),
             num_classes=self.n_classes_,
             mlp_ratio=self.config.get("mlp_ratio", 1.0),
-            use_bidir_attn=self.config.get("use_bidir_attn", False),
+            attn_type=self.config.get("attn_type"),
         ).to(self.device_)
         self.model.create_prompt(self.column_ids_, self.column_ids_lengths_)
         self.model = get_peft_model(self.model, lora_config)

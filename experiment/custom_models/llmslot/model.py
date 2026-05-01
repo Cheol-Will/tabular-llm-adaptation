@@ -1,16 +1,45 @@
-from typing import Callable, Optional
+from typing import Optional
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 from torch import autocast
 
 from transformers import AutoModelForCausalLM
-from ..layer import (
-    FeatureTokenizer,
-    OutputProj,
-)
+from ..layer import FeatureTokenizer, OutputProj
 
+
+def _build_bidir_mask(seq_length: int) -> torch.Tensor:
+    """Full attention (all zeros). Shape: (1, 1, N, N)"""
+    return torch.zeros(1, 1, seq_length, seq_length)
+
+
+def _build_structured_mask(
+    seq_length: int,
+    feat_indices: torch.Tensor,
+    column_ids_lengths: list[int],
+) -> torch.Tensor:
+    """
+    Read attention mask. Shape: (1, 1, N, N)
+    """
+    num_feature_cols = len(column_ids_lengths) - 1
+    mask = torch.full((seq_length, seq_length), float("-inf"))
+
+    prev, cur = 0, 0
+    for i, length in enumerate(column_ids_lengths):
+        if i < num_feature_cols:
+            cur += length + 1  # +1 for feat slot token
+            size = cur - prev
+            mask[prev:cur, prev:cur] = torch.full((size, size), float("-inf")).triu(diagonal=1)
+            prev = cur
+        else:
+            # target segment
+            mask[-length:, :-length] = 0.0
+            mask[-length:, -length:] = torch.full((length, length), float("-inf")).triu(diagonal=1)
+
+    # feat slot tokens attend to each other freely
+    mask[feat_indices[:, None], feat_indices[None, :]] = 0.0
+
+    return mask.unsqueeze(0).unsqueeze(0)  # (1, 1, N, N)
 
 class LLMSlot(nn.Module):
 
@@ -23,55 +52,61 @@ class LLMSlot(nn.Module):
         token_dim: int = 16,
         num_classes: int = 1,
         mlp_ratio: float = 1.0,
-        use_bidir_attn: bool = False,
+        attn_type: str = 'causal', # 'causal' | 'bidir' | 'structured'
         prediction_method: str = 'next_token_pred',
     ):
         super().__init__()
-        assert prediction_method in ['next_token_pred', 'token_pooling']
+        assert attn_type in ('causal', 'bidir', 'structured')
+        assert prediction_method in ('next_token_pred', 'token_pooling')
+
+        self.attn_type = attn_type
+        self.prediction_method = prediction_method
+        self.num_features = num_num_features + len(cardinalities)
 
         self.backbone = AutoModelForCausalLM.from_pretrained(
-            model_name, dtype=torch.bfloat16,
+            model_name, torch_dtype=torch.bfloat16,
         )
-
         self.llm_dim = self.backbone.config.hidden_size
+
         self.feature_tokenizer = FeatureTokenizer(
-            num_num_features,
-            cardinalities,
-            token_dim,
-            num_embedding_type,
+            num_num_features, cardinalities, token_dim, num_embedding_type,
         )
-        self.mlp_adapter = nn.Sequential(*[
+        self.mlp_adapter = nn.Sequential(
             nn.Linear(token_dim, self.llm_dim // 4),
             nn.ReLU(),
             nn.Linear(self.llm_dim // 4, self.llm_dim),
-            nn.LayerNorm(self.llm_dim)
-        ])
+            nn.LayerNorm(self.llm_dim),
+        )
         self.output_proj = OutputProj(self.llm_dim, num_classes, mlp_ratio)
-        self.reset_parameters()
 
-        self.use_bidir_attn = use_bidir_attn
-        self.num_features = num_num_features + len(cardinalities)
-        self.prediction_method = prediction_method
+        # filled by create_prompt()
+        self.prompt: Optional[nn.Parameter] = None
+        self.register_buffer('prompt_mask', None)
+        self.register_buffer('attn_mask', None)
 
-    def create_prompt(self, column_ids, column_ids_lengths):
-        # column_ids: list of N+1 token-ID lists (N feature segs + 1 target seg)
-        # column_ids_lengths: list of N+1 int lengths
-        num_feature_cols = len(column_ids) - 1  # last segment is target, no feat slot after it
+    def create_prompt(
+        self,
+        column_ids: list[list[int]],
+        column_ids_lengths: list[int],
+    ) -> None:
+        """
+        Build prompt embeddings and (optionally) the attention mask.
+        """
+        num_feature_cols = len(column_ids) - 1
+        device = next(self.backbone.parameters()).device
 
-        dev = next(self.backbone.parameters()).device
+        # text embeddings
         flat_ids = torch.tensor(
-            [id_ for ids in column_ids for id_ in ids],
-            dtype=torch.long,
-            device=dev,
+            [tok for seg in column_ids for tok in seg],
+            dtype=torch.long, device=device,
         )
         embed_layer = self.backbone.get_input_embeddings()
         with torch.no_grad():
             text_embeds = embed_layer(flat_ids).float()  # (total_text_tokens, d_llm)
 
-        # Build boolean mask over the interleaved sequence:
-        #   [seg0_tokens] [FEAT_0] [seg1_tokens] [FEAT_1] ... [segN-1_tokens] [FEAT_N-1] [segN_tokens]
+        # prompt mask
         total_len = sum(column_ids_lengths) + num_feature_cols
-        prompt_mask = torch.zeros(total_len, dtype=torch.bool, device=dev)
+        prompt_mask = torch.zeros(total_len, dtype=torch.bool, device=device)
         pos = 0
         for i, length in enumerate(column_ids_lengths):
             pos += length
@@ -82,85 +117,82 @@ class LLMSlot(nn.Module):
         self.prompt = nn.Parameter(text_embeds)
         self.register_buffer('prompt_mask', prompt_mask)
 
-    def reset_parameters(self):
-        pass
+        if self.attn_type == 'causal':
+            attn_mask = None
+        elif self.attn_type == 'bidir':
+            attn_mask = _build_bidir_mask(total_len).to(device)
+        elif self.attn_type == 'structured':
+            feat_indices = prompt_mask.nonzero(as_tuple=True)[0]
+            attn_mask = _build_structured_mask(
+                total_len, feat_indices, column_ids_lengths
+            ).to(device)
 
-    def get_bidir_attn_mask(self, x):
-        B, N = x.shape[0], x.shape[1]
-        bidir_mask = torch.zeros(B, 1, N, N, dtype=x.dtype, device=x.device)
-        attention_mask = {"full_attention": bidir_mask}
+        self.register_buffer('attn_mask', attn_mask)
 
-        return attention_mask
-        
-    def forward(self, x_num: torch.Tensor, x_cat: torch.Tensor):
-        """
-        if self.use_bidir_attn, attention mask is filled with zeros (full attention).
-        """
+    def _build_inputs(self, x: torch.Tensor) -> torch.Tensor:
+        """Fill input embeddings with feature tokens."""
+        B = x.shape[0]
+        total_len = self.prompt_mask.shape[0]
+
+        text_indices = (~self.prompt_mask).nonzero(as_tuple=True)[0]
+        feat_indices = self.prompt_mask.nonzero(as_tuple=True)[0]
+
+        text_idx_exp = text_indices.view(1, -1, 1).expand(B, -1, self.llm_dim)
+        feat_idx_exp = feat_indices.view(1, -1, 1).expand(B, -1, self.llm_dim)
+        prompt_exp = self.prompt.to(x.dtype).unsqueeze(0).expand(B, -1, -1)
+
+        inputs_embeds = torch.zeros(B, total_len, self.llm_dim, dtype=x.dtype, device=x.device)
+        inputs_embeds = inputs_embeds.scatter(1, text_idx_exp, prompt_exp)
+        inputs_embeds = inputs_embeds.scatter(1, feat_idx_exp, x)
+        return inputs_embeds
+
+    def _get_attention_mask(self, B: int, dtype: torch.dtype):
+        if self.attn_mask is None:
+            return None
+        mask = self.attn_mask.to(dtype=dtype).expand(B, -1, -1, -1)
+        return {"full_attention": mask}
+
+    # ------------------------------------------------------------------
+    def forward(
+        self,
+        x_num: torch.Tensor,
+        x_cat: torch.Tensor,
+    ) -> torch.Tensor:
         B = x_num.shape[0]
 
         with autocast(device_type="cuda", dtype=torch.bfloat16):
-            x = self.feature_tokenizer(x_num, x_cat)  # (B, N, d_token)
-            x = self.mlp_adapter(x)  # (B, N, d_llm)
+            x = self.feature_tokenizer(x_num, x_cat)   # (B, N, d_token)
+            x = self.mlp_adapter(x)                     # (B, N, d_llm)
 
-            total_len = self.prompt_mask.shape[0]
-            text_indices = (~self.prompt_mask).nonzero(as_tuple=True)[0]  # (T_text,)
-            feat_indices = self.prompt_mask.nonzero(as_tuple=True)[0]    # (N,)
-
-            text_idx_exp = text_indices.view(1, -1, 1).expand(B, -1, self.llm_dim)
-            feat_idx_exp = feat_indices.view(1, -1, 1).expand(B, -1, self.llm_dim)
-            prompt_exp = self.prompt.to(x.dtype).unsqueeze(0).expand(B, -1, -1)  # (B, T_text, d_llm)
-
-            inputs_embeds = torch.scatter(
-                x.new_zeros(B, total_len, self.llm_dim), 1, text_idx_exp, prompt_exp
-            )
-            inputs_embeds = torch.scatter(inputs_embeds, 1, feat_idx_exp, x)
-
-            attention_mask = None
-            if self.use_bidir_attn:
-                attention_mask = self.get_bidir_attn_mask(inputs_embeds)
+            inputs_embeds = self._build_inputs(x)
+            attention_mask = self._get_attention_mask(B, x.dtype)
 
             outputs = self.backbone.model(
                 inputs_embeds=inputs_embeds,
                 attention_mask=attention_mask,
             )
-            
+
+            hidden_state = outputs.last_hidden_state
             if self.prediction_method == 'next_token_pred':
-                pred_hidden = outputs.last_hidden_state[:,-1,:]  # (B, D)
-            elif self.prediction_method == 'token_pooling':
-                pred_hidden = outputs.last_hidden_state.mean(dim=1)  # (B, D)
-            else:
-                raise ValueError(f"Unknown prediction method: {self.prediction_method}")
+                pred_hidden = hidden_state[:, -1, :]          # (B, D)
+            else:  # token_pooling
+                pred_hidden = hidden_state.mean(dim=1)        # (B, D)
 
-            logits = self.output_proj(pred_hidden)
+            return self.output_proj(pred_hidden)
 
-        return logits
-
-    def forward_with_attn(self, x_num: torch.Tensor, x_cat: torch.Tensor):
-        """
-        if self.use_bidir_attn, attention mask is filled with zeros (full attention).
-        """
+    def forward_with_attn(
+        self,
+        x_num: torch.Tensor,
+        x_cat: torch.Tensor,
+    ) -> tuple:
         B = x_num.shape[0]
 
         with autocast(device_type="cuda", dtype=torch.bfloat16):
-            x = self.feature_tokenizer(x_num, x_cat)  # (B, N, d_token)
-            x = self.mlp_adapter(x)  # (B, N, d_llm)
+            x = self.feature_tokenizer(x_num, x_cat)
+            x = self.mlp_adapter(x)
 
-            total_len = self.prompt_mask.shape[0]
-            text_indices = (~self.prompt_mask).nonzero(as_tuple=True)[0]  # (T_text,)
-            feat_indices = self.prompt_mask.nonzero(as_tuple=True)[0]    # (N,)
-
-            text_idx_exp = text_indices.view(1, -1, 1).expand(B, -1, self.llm_dim)
-            feat_idx_exp = feat_indices.view(1, -1, 1).expand(B, -1, self.llm_dim)
-            prompt_exp = self.prompt.to(x.dtype).unsqueeze(0).expand(B, -1, -1)  # (B, T_text, d_llm)
-
-            inputs_embeds = torch.scatter(
-                x.new_zeros(B, total_len, self.llm_dim), 1, text_idx_exp, prompt_exp
-            )
-            inputs_embeds = torch.scatter(inputs_embeds, 1, feat_idx_exp, x)
-
-            attention_mask = None
-            if self.use_bidir_attn:
-                attention_mask = self.get_bidir_attn_mask(inputs_embeds)
+            inputs_embeds = self._build_inputs(x)
+            attention_mask = self._get_attention_mask(B, x.dtype)
 
             outputs = self.backbone.model(
                 inputs_embeds=inputs_embeds,
@@ -169,12 +201,11 @@ class LLMSlot(nn.Module):
                 use_cache=False,
             )
 
+            hs = outputs.last_hidden_state
             if self.prediction_method == 'next_token_pred':
-                pred_hidden = outputs.last_hidden_state[:,-1,:]  # (B, D)
-            elif self.prediction_method == 'token_pooling':
-                pred_hidden = outputs.last_hidden_state.mean(dim=1)  # (B, D)
+                pred_hidden = hs[:, -1, :]
             else:
-                raise ValueError(f"Unknown prediction method: {self.prediction_method}")
+                pred_hidden = hs.mean(dim=1)
 
             logits = self.output_proj(pred_hidden)
 

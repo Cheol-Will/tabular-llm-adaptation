@@ -69,6 +69,34 @@ def debug_llmadapter_frozen():
             print(f"  [FROZEN] {name} {list(param.shape)}")
 
 
+def _build_read_mask(
+    seq_length: int,
+    feat_indices: torch.Tensor,
+    column_ids_lengths: list[int],
+) -> torch.Tensor:
+    """
+    Read attention mask. Shape: (1, 1, N, N)
+    """
+    num_feature_cols = len(column_ids_lengths) - 1
+    mask = torch.full((seq_length, seq_length), float("-inf"))
+
+    prev, cur = 0, 0
+    for i, length in enumerate(column_ids_lengths):
+        if i < num_feature_cols:
+            cur += length + 1  # +1 for feat slot token
+            size = cur - prev
+            mask[prev:cur, prev:cur] = torch.full((size, size), float("-inf")).triu(diagonal=1)
+            prev = cur
+        else:
+            # target segment
+            mask[-length:, :-length] = 0.0
+            mask[-length:, -length:] = torch.full((length, length), float("-inf")).triu(diagonal=1)
+
+    # feat slot tokens attend to each other freely
+    mask[feat_indices[:, None], feat_indices[None, :]] = 0.0
+
+    return mask.unsqueeze(0).unsqueeze(0)  # (1, 1, N, N)
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--task_ids", type=int, nargs="+", default=None)
@@ -76,12 +104,26 @@ def main():
     # print(args.task_ids)
 
     # debug_dataset_attn_mask()
-    get_response(363621, idx=9)
+    # get_response(363621, idx=9)
     # get_response(363612)
     # get_response(363629)
     # get_response(363671)
     # get_response(363615)
     # debug_llmadapter_frozen()
 
+    # idx = [0, 1, 3, 4 ,5, 7, 8, 9, 10]
+    idx = [2, 6, 11]
+    
+    seq = torch.randn(2, 14, 16)
+    
+    prompt_mask = torch.zeros(seq.shape[1], dtype=torch.bool)
+    prompt_mask[idx] = True
+
+    text_indices = (~prompt_mask).nonzero(as_tuple=True)[0]
+    feat_indices = prompt_mask.nonzero(as_tuple=True)[0]
+    column_ids_lengths = [2, 3, 4, 2]
+    mask = _build_read_mask(12, feat_indices, column_ids_lengths)
+    print(mask)
+    
 if __name__ == "__main__":
     main()

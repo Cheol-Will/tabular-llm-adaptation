@@ -25,7 +25,7 @@ def get_experiment_configs(
             "weight_decay": 1e-5,
             "batch_size": 128,
             "mlp_fine_tune": args.mlp_fine_tune,
-            "use_bidir_attn": args.use_bidir_attn,
+            "attn_type": args.attn_type,
             "prediction_method": args.prediction_method,
             "project_name": f"{args.model}_{args.exp_name}", # for wandb
         },
@@ -43,7 +43,7 @@ def get_experiment_configs(
         "weight_decay": Real(1e-6, 1e-3, log=True),
         "batch_size": Categorical(128, 256),
         "mlp_fine_tune": args.mlp_fine_tune,
-        "use_bidir_attn": args.use_bidir_attn,
+        "attn_type": args.attn_type,
         "prediction_method": args.prediction_method,
         "project_name": f"{args.model}_{args.exp_name}", # for wandb
     }
@@ -74,7 +74,7 @@ def get_manual_config(args):
             "weight_decay": 1e-5,
             "batch_size": 128,
             "mlp_fine_tune": args.mlp_fine_tune,
-            "use_bidir_attn": args.use_bidir_attn,
+            "attn_type": args.attn_type,
             "prediction_method": args.prediction_method,
             "project_name": f"{args.model}_{args.exp_name}",
         }
