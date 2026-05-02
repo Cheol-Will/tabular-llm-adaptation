@@ -19,10 +19,12 @@ def get_parser():
     parser.add_argument("--use_tail_task_ids", action="store_true")
 
     # common model hyperparameters
+    parser.add_argument("--model_name", type=str, required=True)
     parser.add_argument("--mlp_fine_tune", action="store_true")
     parser.add_argument("--batch_size", type=int, default=None)
     parser.add_argument("--attn_type", type=str, required=True)
     parser.add_argument("--prediction_method", type=str, default="next_token_pred")
+    parser.add_argument("--use_wandb", action="store_true")
     return parser
 
 def load_tid(name: str = 'tid'):
