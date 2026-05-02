@@ -47,17 +47,22 @@
 # exp_name="260331-engineering"
 # exp_name="260331-engineering"
 # exp_name="260423-bidir"
-exp_name="260424-next_token_pred"
-model="LLMSlot"
-# exp_name="260426-BaselineBidir"
-# model="LLMBaselineBidirectional"
+# exp_name="260424-next_token_pred"
+# model="LLMAdapter"
+# model="LLMSlot"
+
+# exp_name="260429-LB-Bidir"
+# model="LLMBaseline"
 
 # exp_name="260421-3"
 # exp_name="260423-bidir"
-# model="LLMAdapter"
+exp_name="260429-LA-Bidir"
+model="LLMAdapter"
+# exp_name="260429-LB-Bidir"
+# model="LLMBaseline"
 
 python experiment/evaluate.py \
     --exp_name $exp_name \
     --model "$model$exp_name" \
-    # --generate_cache \
     # --model "$model" \
+    # --generate_cache \

@@ -1,8 +1,12 @@
 # exp_name="260420-LLMRead-GradClip"
 # exp_name="260426-BaselineBidir"
 # exp_name="260424-next_token_pred"
-# exp_name="260421-3"
+# exp_name="260429-LB-Bidir"
+# exp_name="260430-LS-Bidir"
+attn_type="structured"
+exp_name="260501-2-LS-$attn_type"
 model="LLMSlot"
+
 # model="LLMAdapter"
 # model="LLMBaseline"
 # model_cls_name="LLMBaselineBidirectional"
@@ -15,11 +19,38 @@ python experiment/main.py \
     --exp_name $exp_name \
     --num_random_configs $num_random_configs \
     --attn_type $attn_type \
-    --task_ids 363707 # multi-clf 363614 363707
+    --batch_size 512
+    # --task_ids 363612 363625 363675 363707
+    # --task_ids 363621 363626 363629 363698
+    
+    # --task_ids 363707 363625 
+    # --task_ids 363698 363626 
+    # --task_ids 363612 363625
+    
+    # --task_ids 363675 363707
+    # --task_ids 363621 363626 
+    # --task_ids 363629 363698 
+    # --task_ids 
+
+
+    # --task_ids 363698 
+    # --task_ids 363625
+    # --task_ids 363707 # multi-clf 363614 363707
+    # --task_ids 363629 # 
+    # --task_ids 363675 # 
+    # --task_ids 363612
+    # --subset small
+    # --task_ids 363626
+
+
+    # --task_ids 363675
+    # --task_ids 363629
+    # --task_ids 363698
+    # --task_ids 363612 363625 363675 363707
+    # --task_ids 363707 # multi-clf 363614 363707
     # --task_ids 363675  # tmux 0 -ing
     # --model_cls_name $model_cls_name \
     # --subset small
-    # --task_ids 363675 
     # --task_ids 363626 363675 # tmux 0 -ing
     # --task_ids 363612 363698  # tmux todo
     # --task_ids 363621 363625 363629  # tmux 1
@@ -104,3 +135,4 @@ python experiment/main.py \
 #     # --problem_type "binary"
 #     # --problem_type "multi"
     # --task_ids 363707
+# 

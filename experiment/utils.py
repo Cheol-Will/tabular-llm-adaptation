@@ -20,6 +20,7 @@ def get_parser():
 
     # common model hyperparameters
     parser.add_argument("--mlp_fine_tune", action="store_true")
+    parser.add_argument("--batch_size", type=int, default=None)
     parser.add_argument("--attn_type", type=str, required=True)
     parser.add_argument("--prediction_method", type=str, default="next_token_pred")
     return parser

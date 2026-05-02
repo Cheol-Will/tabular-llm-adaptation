@@ -17,14 +17,16 @@
 # echo ""
 # echo "Analysis complete! Check evals/$EXP_NAME/ for results."
 
-
 # task_id=363675
 # task_id=363625
 # exp_name="260320-num_emb"
-task_id=363612
-exp_name="260429-bidir"
+# task_id=363612
+task_id=363621
+# exp_name="260429-bidir"
+exp_name="260429-causal-slot"
 # model="LLMAdapter"
-model="LLMBaseline"
+model="LLMSlot"
+# model="LLMBaseline"
 analysis_type="attn-map"
 # exp_name="260401-2-engineering"
 # model="LLMAdapterEngineered"
@@ -34,4 +36,5 @@ python experiment/analysis.py \
     --model $model \
     --exp_name $exp_name \
     --task_id $task_id \
-    --use_bidir_attn
+    --analysis_type $analysis_type \
+    # --use_bidir_attn
