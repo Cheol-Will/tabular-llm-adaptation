@@ -113,7 +113,6 @@ class LLMSlot(nn.Module):
             if i < num_feature_cols:
                 prompt_mask[pos] = True
                 pos += 1
-
         self.prompt = nn.Parameter(text_embeds)
         self.register_buffer('prompt_mask', prompt_mask)
 
@@ -128,6 +127,7 @@ class LLMSlot(nn.Module):
             ).to(device)
 
         self.register_buffer('attn_mask', attn_mask)
+        print(f"Total Sequence Length: {total_len}")
 
     def _build_inputs(self, x: torch.Tensor) -> torch.Tensor:
         """Fill input embeddings with feature tokens."""

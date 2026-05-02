@@ -462,6 +462,7 @@ class LLMSlotImplementation:
         cat_col_names: list[Any],
         time_to_fit_in_seconds: float | None = None,
     ):
+        print(f"Allocated time: {time_to_fit_in_seconds}(s)")
         gc.collect()
         torch.cuda.empty_cache()
 
