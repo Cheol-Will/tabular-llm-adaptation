@@ -14,6 +14,7 @@ def get_experiment_configs(
     """
     manual_configs = [
         {
+            "model_name": args.model_name,
             "num_epochs": 100,
             "token_dim": 32,
             "lr": 1e-3,
@@ -28,10 +29,12 @@ def get_experiment_configs(
             "attn_type": args.attn_type,
             "prediction_method": args.prediction_method,
             "project_name": f"{args.model}_{args.exp_name}", # for wandb
+            "use_wandb": args.use_wandb,
         },
     ]
 
     search_space = {
+        "model_name": args.model_name,
         "num_epochs": 100,
         "token_dim": Categorical(16, 32),
         "lr": Real(1e-4, 5e-3, log=True), # feature_tokenizer, output_proj
@@ -46,6 +49,7 @@ def get_experiment_configs(
         "attn_type": args.attn_type,
         "prediction_method": args.prediction_method,
         "project_name": f"{args.model}_{args.exp_name}", # for wandb
+        "use_wandb": args.use_wandb,
     }
 
     gen = ConfigGenerator(
@@ -63,6 +67,7 @@ def get_experiment_configs(
 def get_manual_config(args):
         
     return {
+            "model_name": args.model_name,
             "num_epochs": 100,
             "token_dim": 32,
             "lr": 1e-3,
@@ -77,4 +82,5 @@ def get_manual_config(args):
             "attn_type": args.attn_type,
             "prediction_method": args.prediction_method,
             "project_name": f"{args.model}_{args.exp_name}",
+            "use_wandb": args.use_wandb,
         }

@@ -46,36 +46,6 @@ def _find_free_port() -> int:
         s.bind(("", 0))
         return s.getsockname()[1]
 
-def get_optimizer(model, config):
-    lr = config.get("lr", 1e-3)
-    lora_lr = config.get("lora_lr", 1e-4)
-    weight_decay = config.get("weight_decay", 1e-5)
-    base = model.module.base_model.model
-
-    for name, param in model.named_parameters():
-        if any(k in name for k in ("feature_tokenizer", "mlp_adapter", "output_proj", "prompt")):
-            param.requires_grad_(True)
-
-    params = [{"params": [p for p in base.backbone.parameters() if p.requires_grad], "lr": lora_lr}]
-    if hasattr(base, "feature_tokenizer"):
-        params.append({"params": base.feature_tokenizer.parameters(), "lr": lr})
-    if hasattr(base, "mlp_adapter"):
-        params.append({"params": base.mlp_adapter.parameters(), "lr": lr})
-    if hasattr(base, "output_proj"):
-        params.append({"params": base.output_proj.parameters(), "lr": lr})
-    if hasattr(base, "prompt"):
-        params.append({"params": [base.prompt], "lr": lora_lr, "weight_decay": 0.0})
-    if hasattr(base, "read_tokens"):
-        params.append({"params": [base.read_tokens], "lr": lr})
-    if hasattr(base, "pred_token"):
-        params.append({"params": [base.pred_token], "lr": lr})
-
-    optimizer = torch.optim.AdamW(
-        params,
-        weight_decay=weight_decay,
-    )
-
-    return optimizer
 
 def _evaluate_worker(
     model: nn.Module,
@@ -138,6 +108,33 @@ def _evaluate_worker(
     return val_score, metric_val
 
 
+def get_optimizer(model, config, use_ddp: bool = True):
+    lr = config.get("lr", 1e-3)
+    lora_lr = config.get("lora_lr", 1e-4)
+    weight_decay = config.get("weight_decay", 1e-5)
+    base = model.module.base_model.model if use_ddp else model.base_model.model
+
+    for name, param in model.named_parameters():
+        if any(k in name for k in ("feature_tokenizer", "mlp_adapter", "output_proj", "prompt")):
+            param.requires_grad_(True)
+
+    params = [{"params": [p for p in base.backbone.parameters() if p.requires_grad], "lr": lora_lr}]
+    if hasattr(base, "feature_tokenizer"):
+        params.append({"params": base.feature_tokenizer.parameters(), "lr": lr})
+    if hasattr(base, "mlp_adapter"):
+        params.append({"params": base.mlp_adapter.parameters(), "lr": lr})
+    if hasattr(base, "output_proj"):
+        params.append({"params": base.output_proj.parameters(), "lr": lr})
+    if hasattr(base, "prompt"):
+        params.append({"params": [base.prompt], "lr": lora_lr, "weight_decay": 0.0})
+    if hasattr(base, "read_tokens"):
+        params.append({"params": [base.read_tokens], "lr": lr})
+    if hasattr(base, "pred_token"):
+        params.append({"params": [base.pred_token], "lr": lr})
+
+    return torch.optim.AdamW(params, weight_decay=weight_decay)
+
+
 def _ddp_worker(
     rank: int,
     world_size: int,
@@ -162,21 +159,25 @@ def _ddp_worker(
     column_ids: list | None = None,
     column_ids_lengths: list | None = None,
 ):
+    use_ddp = world_size > 1
+
     device = torch.device(f"cuda:{gpu_ids[rank]}")
     torch.cuda.set_device(device)
 
-    dist.init_process_group(
-        backend="nccl",
-        init_method=f"tcp://127.0.0.1:{master_port}",
-        world_size=world_size,
-        rank=rank,
-        device_id=device,
-    )
+    if use_ddp:
+        dist.init_process_group(
+            backend="nccl",
+            init_method=f"tcp://127.0.0.1:{master_port}",
+            world_size=world_size,
+            rank=rank,
+            device_id=device,
+        )
 
     if config.get("mlp_fine_tune", False):
         _target_modules = ["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"]
     else:
         _target_modules = ["q_proj", "k_proj", "v_proj", "o_proj"]
+
     lora_config = LoraConfig(
         r=config.get("lora_rank", 8),
         lora_alpha=config.get("lora_alpha", 32),
@@ -184,6 +185,7 @@ def _ddp_worker(
         lora_dropout=config.get("lora_dropout", 0.1),
         bias="none",
     )
+
     model = LLMSlot(
         num_num_features=num_num_features,
         cardinalities=cardinalities,
@@ -194,45 +196,45 @@ def _ddp_worker(
         mlp_ratio=config.get("mlp_ratio", 1.0),
         attn_type=config.get("attn_type"),
     ).to(device)
+
     if column_ids is not None:
         model.create_prompt(column_ids, column_ids_lengths)
+
     model = get_peft_model(model, lora_config)
-    
+
     if rank == 0:
         model.print_trainable_parameters()
-        # for name, param in model.named_parameters():
-        #     if param.requires_grad:
-        #         print(f"  trainable: {name} {list(param.shape)}")
 
-    model = DDP(model, device_ids=[gpu_ids[rank]])
+    if use_ddp:
+        model = DDP(model, device_ids=[gpu_ids[rank]])
+
+    # unwrapped: DDP 벗긴 모델 (evaluate/state_dict용)
+    unwrapped = model.module if use_ddp else model
 
     train_sampler = DistributedSampler(
         train_dataset, num_replicas=world_size, rank=rank, shuffle=True
-    )
+    ) if use_ddp else None
+
     train_loader = DataLoader(
         train_dataset,
         batch_size=config.get("batch_size", 128),
         sampler=train_sampler,
+        shuffle=(train_sampler is None),  # sampler 있으면 shuffle 불가
         num_workers=4,
-        pin_memory=True,                
+        pin_memory=True,
     )
 
-    val_loader = (
-        DataLoader(
-            val_dataset,
-            batch_size=config.get("eval_batch_size", 128), 
-            shuffle=False,
-            num_workers=4,
-            pin_memory=True,                            
-        )
-        if rank == 0
-        else None
-    )
+    val_loader = DataLoader(
+        val_dataset,
+        batch_size=config.get("eval_batch_size", 128),
+        shuffle=False,
+        num_workers=4,
+        pin_memory=True,
+    ) if rank == 0 else None
 
     loss_fn = nn.MSELoss() if task_type == "regression" else nn.CrossEntropyLoss()
-    
-    optimizer = get_optimizer(model, config)
-    
+    optimizer = get_optimizer(model, config, use_ddp=use_ddp)
+
     patience = config.get("patience", 16)
     remaining_patience = patience
     best_val_score = -np.inf
@@ -267,19 +269,19 @@ def _ddp_worker(
     from autogluon.core.metrics import get_metric
     eval_metric = get_metric("roc_auc", "binary") if task_type == "binclass" else None
 
-    # Epoch-0 baseline (rank 0 only; result broadcast to sync all ranks)
+    # Epoch-0 baseline
     if rank == 0:
         best_val_score, _ = _evaluate_worker(
-            model.module, val_loader,
+            unwrapped, val_loader,
             task_type, y_mean, y_std, early_stopping_metric, device,
         )
-        # best_val_score = float("-inf")
-        best_state = {k: v.cpu().clone() for k, v in model.module.state_dict().items()}
+        best_state = {k: v.cpu().clone() for k, v in unwrapped.state_dict().items()}
         logger.info(f"Epoch 000 (baseline): Val Score = {best_val_score:.4f}")
 
-    score_buf = torch.tensor([best_val_score], device=device)
-    dist.broadcast(score_buf, src=0)
-    best_val_score = score_buf.item()
+    if use_ddp:
+        score_buf = torch.tensor([best_val_score], device=device)
+        dist.broadcast(score_buf, src=0)
+        best_val_score = score_buf.item()
 
     num_epochs = config.get("num_epochs", 100)
     warmup_epochs = config.get("warmup_epochs", 10)
@@ -297,11 +299,13 @@ def _ddp_worker(
 
     for epoch in epoch_iter:
         if time_to_fit_in_seconds and (time.time() - start_time) >= time_to_fit_in_seconds:
-            print(f"Time out on epoch={epoch}. ")
-            print(f"Time to fit in seconds was {time_to_fit_in_seconds}")
+            # print(f"Time out on epoch={epoch}.")
+            # print(f"Time to fit in seconds was {time_to_fit_in_seconds}")
             break
 
-        train_sampler.set_epoch(epoch)
+        if use_ddp:
+            train_sampler.set_epoch(epoch)
+
         model.train()
         train_loss = 0.0
         grad_norm = 0.0
@@ -321,13 +325,12 @@ def _ddp_worker(
             optimizer.step()
             train_loss += loss.item()
 
-        # Rank 0 evaluates; rank 1 waits at the broadcast below
         val_score = -np.inf
         if rank == 0:
             val_score, metric_val = _evaluate_worker(
-                model.module, val_loader,
+                unwrapped, val_loader,
                 task_type, y_mean, y_std, early_stopping_metric, device,
-                eval_metric=eval_metric
+                eval_metric=eval_metric,
             )
             avg_loss = train_loss / len(train_loader)
             avg_grad_norm = grad_norm / len(train_loader)
@@ -349,15 +352,16 @@ def _ddp_worker(
                     "best_val_score": best_val_score,
                 })
 
-        score_buf = torch.tensor([val_score], device=device)
-        dist.broadcast(score_buf, src=0)
-        val_score = score_buf.item()
+        if use_ddp:
+            score_buf = torch.tensor([val_score], device=device)
+            dist.broadcast(score_buf, src=0)
+            val_score = score_buf.item()
 
         if val_score > best_val_score:
             best_val_score = val_score
             remaining_patience = patience
             if rank == 0:
-                best_state = {k: v.cpu().clone() for k, v in model.module.state_dict().items()}
+                best_state = {k: v.cpu().clone() for k, v in unwrapped.state_dict().items()}
                 if use_wandb:
                     wandb.run.summary["best_val_score"] = best_val_score
                     wandb.run.summary["best_epoch"] = epoch
@@ -366,17 +370,17 @@ def _ddp_worker(
 
         scheduler.step()
 
-        # Broadcast early-stopping decision so all ranks agree
-        patience_buf = torch.tensor([remaining_patience], device=device)
-        dist.broadcast(patience_buf, src=0)
-        remaining_patience = int(patience_buf.item())
+        if use_ddp:
+            patience_buf = torch.tensor([remaining_patience], device=device)
+            dist.broadcast(patience_buf, src=0)
+            remaining_patience = int(patience_buf.item())
 
         if remaining_patience <= 0:
             logger.info(f"Early stopping at epoch {epoch}.")
-            print(f"Early stopping at epoch {epoch}.")
-            print(remaining_patience)
-            print(val_score)
-            print(best_val_score)
+            # print(f"Early stopping at epoch {epoch}.")
+            # print(remaining_patience)
+            # print(val_score)
+            # print(best_val_score)
             break
 
     if rank == 0:
@@ -385,8 +389,9 @@ def _ddp_worker(
         if use_wandb:
             wandb.finish()
 
-    dist.barrier()
-    dist.destroy_process_group()
+    if use_ddp:
+        dist.barrier()
+        dist.destroy_process_group()
 
 
 class LLMSlotImplementation:
@@ -408,6 +413,8 @@ class LLMSlotImplementation:
         self.y_std_: float = 1.0
 
         load_dotenv()
+
+        # self.use_wandb = config.get("use_wandb", False)
         self.use_wandb = bool(os.getenv("WANDB_API_KEY"))
         if self.use_wandb:
             print("✅ WandB API Key loaded from .env")
@@ -464,6 +471,7 @@ class LLMSlotImplementation:
         cat_col_names: list[Any],
         time_to_fit_in_seconds: float | None = None,
     ):
+        # print(f"Allocated time: {time_to_fit_in_seconds}(s)")
         gc.collect()
         torch.cuda.empty_cache()
 
@@ -527,7 +535,10 @@ class LLMSlotImplementation:
 
         # Build prompt metadata: columns ordered to match feature_tokenizer (num then cat)
         model_name = self.config.get("model_name", "Qwen/Qwen2.5-0.5B")
-        tokenizer = AutoTokenizer.from_pretrained(model_name)
+        tokenizer = AutoTokenizer.from_pretrained(
+            model_name,
+            token=os.getenv("HUGGING_FACE_TOKEN"),
+            )
         ordered_cols = self.num_col_names_ + self.cat_col_names_
         sample_row = X_train[ordered_cols].iloc[0]
         column_ids, column_ids_lengths = get_initial_prompt(tokenizer, sample_row, y_train)
@@ -547,20 +558,21 @@ class LLMSlotImplementation:
         task_id = self.config.get("task_id") or int(os.getenv("CURRENT_TASK_ID", "0"))
         project_name = self.config.get("project_name", "llmadapter")
 
-        mp.spawn(
-            _ddp_worker,
-            args=(
-                world_size, gpu_ids, self.config, self.task_type_, self.n_classes_,
-                num_num_features, cardinalities, self.y_mean_, self.y_std_,
-                train_dataset, val_dataset,
-                self.early_stopping_metric, model_save_path,
-                start_time, time_to_fit_in_seconds, master_port,
-                self.use_wandb, task_id, project_name,
-                column_ids, column_ids_lengths,
-            ),
-            nprocs=world_size,
-            join=True,
+        worker_args = (
+            world_size, gpu_ids, self.config, self.task_type_, self.n_classes_,
+            num_num_features, cardinalities, self.y_mean_, self.y_std_,
+            train_dataset, val_dataset,
+            self.early_stopping_metric, model_save_path,
+            start_time, time_to_fit_in_seconds, master_port,
+            self.use_wandb, task_id, project_name,
+            column_ids, column_ids_lengths,
         )
+
+        if world_size > 1:
+            mp.spawn(_ddp_worker, args=worker_args, nprocs=world_size, join=True)
+        else:
+            _ddp_worker(0, *worker_args)
+
 
         # Load the best model on the primary GPU for inference
         if self.config.get("mlp_fine_tune", False):
