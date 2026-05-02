@@ -1,21 +1,22 @@
 # exp_name="260420-LLMRead-GradClip"
 # exp_name="260426-BaselineBidir"
-exp_name="260424-next_token_pred"
+# exp_name="260424-next_token_pred"
 # exp_name="260421-3"
 model="LLMSlot"
 # model="LLMAdapter"
 # model="LLMBaseline"
 # model_cls_name="LLMBaselineBidirectional"
 # model_cls_name="LLMRead"
-
+attn_type="structured"
+exp_name="260502-LS-$attn_type"
 num_random_configs=10 # for fast experiment
 python experiment/main.py \
     --model $model \
     --exp_name $exp_name \
     --num_random_configs $num_random_configs \
+    --attn_type $attn_type \
     --task_ids 363707 # multi-clf 363614 363707
     # --task_ids 363675  # tmux 0 -ing
-    # --task_ids 363707
     # --model_cls_name $model_cls_name \
     # --subset small
     # --task_ids 363675 
