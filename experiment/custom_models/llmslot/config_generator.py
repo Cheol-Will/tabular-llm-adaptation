@@ -23,7 +23,7 @@ def get_experiment_configs(
             "lora_dropout": 0.1,
             "mlp_ratio": 1.0,
             "weight_decay": 1e-5,
-            "batch_size": 128,
+            "batch_size": args.batch_size if args.batch_size is not None else 128,
             "mlp_fine_tune": args.mlp_fine_tune,
             "attn_type": args.attn_type,
             "prediction_method": args.prediction_method,

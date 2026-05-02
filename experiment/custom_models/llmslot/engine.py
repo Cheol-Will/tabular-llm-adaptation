@@ -297,6 +297,8 @@ def _ddp_worker(
 
     for epoch in epoch_iter:
         if time_to_fit_in_seconds and (time.time() - start_time) >= time_to_fit_in_seconds:
+            print(f"Time out on epoch={epoch}. ")
+            print(f"Time to fit in seconds was {time_to_fit_in_seconds}")
             break
 
         train_sampler.set_epoch(epoch)
