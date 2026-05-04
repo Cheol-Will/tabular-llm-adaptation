@@ -208,7 +208,6 @@ def _ddp_worker(
     if use_ddp:
         model = DDP(model, device_ids=[gpu_ids[rank]])
 
-    # unwrapped: DDP 벗긴 모델 (evaluate/state_dict용)
     unwrapped = model.module if use_ddp else model
 
     train_sampler = DistributedSampler(
@@ -299,8 +298,6 @@ def _ddp_worker(
 
     for epoch in epoch_iter:
         if time_to_fit_in_seconds and (time.time() - start_time) >= time_to_fit_in_seconds:
-            # print(f"Time out on epoch={epoch}.")
-            # print(f"Time to fit in seconds was {time_to_fit_in_seconds}")
             break
 
         if use_ddp:
@@ -377,10 +374,6 @@ def _ddp_worker(
 
         if remaining_patience <= 0:
             logger.info(f"Early stopping at epoch {epoch}.")
-            # print(f"Early stopping at epoch {epoch}.")
-            # print(remaining_patience)
-            # print(val_score)
-            # print(best_val_score)
             break
 
     if rank == 0:
@@ -471,7 +464,6 @@ class LLMSlotImplementation:
         cat_col_names: list[Any],
         time_to_fit_in_seconds: float | None = None,
     ):
-        # print(f"Allocated time: {time_to_fit_in_seconds}(s)")
         gc.collect()
         torch.cuda.empty_cache()
 

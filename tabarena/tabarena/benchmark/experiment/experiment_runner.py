@@ -158,6 +158,7 @@ class ExperimentRunner:
             y_pred_proba=out["probabilities"],
         )
         out = self.post_evaluate(out=out)
+        print("Done: post_evaluate. Here we can remove model.pt")
         out["experiment_metadata"] = self._experiment_metadata(time_start=time_start, time_start_str=time_start_str)
         out = self.convert_to_output(out=out)
         return out

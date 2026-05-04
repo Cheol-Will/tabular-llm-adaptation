@@ -6,6 +6,21 @@ from run_analysis import load_openml_data
 
 import argparse
 
+from transformers import pipeline
+
+def debug_llama():
+    model_id = "meta-llama/Llama-3.2-1B"
+
+    pipe = pipeline(
+        "text-generation", 
+        model=model_id, 
+        torch_dtype=torch.bfloat16, 
+        device_map="auto"
+    )
+
+    pipe("The key to life is")
+
+
     
 def get_response(task_id: int = 363621, idx: int = 0):
     X, y, label = load_openml_data(task_id)
@@ -101,6 +116,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--task_ids", type=int, nargs="+", default=None)
     args = parser.parse_args()
+    debug_llama()
     # print(args.task_ids)
 
     # debug_dataset_attn_mask()
@@ -112,18 +128,18 @@ def main():
     # debug_llmadapter_frozen()
 
     # idx = [0, 1, 3, 4 ,5, 7, 8, 9, 10]
-    idx = [2, 6, 11]
+    # idx = [2, 6, 11]
     
-    seq = torch.randn(2, 14, 16)
+    # seq = torch.randn(2, 14, 16)
     
-    prompt_mask = torch.zeros(seq.shape[1], dtype=torch.bool)
-    prompt_mask[idx] = True
+    # prompt_mask = torch.zeros(seq.shape[1], dtype=torch.bool)
+    # prompt_mask[idx] = True
 
-    text_indices = (~prompt_mask).nonzero(as_tuple=True)[0]
-    feat_indices = prompt_mask.nonzero(as_tuple=True)[0]
-    column_ids_lengths = [2, 3, 4, 2]
-    mask = _build_read_mask(12, feat_indices, column_ids_lengths)
-    print(mask)
+    # text_indices = (~prompt_mask).nonzero(as_tuple=True)[0]
+    # feat_indices = prompt_mask.nonzero(as_tuple=True)[0]
+    # column_ids_lengths = [2, 3, 4, 2]
+    # mask = _build_read_mask(12, feat_indices, column_ids_lengths)
+    # print(mask)
     
 if __name__ == "__main__":
     main()

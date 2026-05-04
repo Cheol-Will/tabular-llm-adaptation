@@ -15,7 +15,7 @@ def get_experiment_configs(
     manual_configs = [
         {
             "model_name": args.model_name,
-            "num_epochs": 100,
+            "num_epochs": args.num_epochs if args.num_epochs is not None else 100,
             "token_dim": 32,
             "lr": 1e-3,
             "lora_lr": 5e-4,
@@ -44,6 +44,7 @@ def get_experiment_configs(
         "lora_dropout": Real(0.0, 0.2),
         "mlp_ratio": Categorical(0.25, 0.5, 1.0),
         "weight_decay": Real(1e-6, 1e-3, log=True),
+        "num_epochs": args.num_epochs if args.num_epochs is not None else 100,
         "batch_size": Categorical(128, 256),
         "mlp_fine_tune": args.mlp_fine_tune,
         "attn_type": args.attn_type,
@@ -77,6 +78,7 @@ def get_manual_config(args):
             "lora_dropout": 0.1,
             "mlp_ratio": 1.0,
             "weight_decay": 1e-5,
+            "num_epochs": args.num_epochs if args.num_epochs is not None else 100,
             "batch_size": 128,
             "mlp_fine_tune": args.mlp_fine_tune,
             "attn_type": args.attn_type,
