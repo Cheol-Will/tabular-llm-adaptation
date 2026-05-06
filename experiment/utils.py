@@ -57,7 +57,6 @@ def filter_data(args):
             363675,
             # multi-class
             363707,
-            # 363614, # OOM
         ]       
 
     if args.subset == 'small-large-features':
