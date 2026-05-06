@@ -298,6 +298,7 @@ class OOFExperimentRunner(ExperimentRunner):
         else:
             simulation_artifact = None
         out["simulation_artifacts"] = simulation_artifact
+        self.model._remove_model()
         return out
 
 
