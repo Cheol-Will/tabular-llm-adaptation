@@ -158,6 +158,7 @@ class ExperimentRunner:
             y_pred_proba=out["probabilities"],
         )
         out = self.post_evaluate(out=out)
+        print("Done: post_evaluate. Here we can remove model.pt")
         out["experiment_metadata"] = self._experiment_metadata(time_start=time_start, time_start_str=time_start_str)
         out = self.convert_to_output(out=out)
         return out
@@ -297,6 +298,7 @@ class OOFExperimentRunner(ExperimentRunner):
         else:
             simulation_artifact = None
         out["simulation_artifacts"] = simulation_artifact
+        self.model._remove_model()
         return out
 
 

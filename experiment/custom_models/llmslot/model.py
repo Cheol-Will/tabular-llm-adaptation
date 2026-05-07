@@ -1,5 +1,5 @@
 from typing import Optional
-
+import os
 import torch
 import torch.nn as nn
 from torch import autocast
@@ -65,6 +65,7 @@ class LLMSlot(nn.Module):
 
         self.backbone = AutoModelForCausalLM.from_pretrained(
             model_name, torch_dtype=torch.bfloat16,
+            token=os.getenv("HUGGING_FACE_TOKEN"),
         )
         self.llm_dim = self.backbone.config.hidden_size
 
@@ -89,22 +90,17 @@ class LLMSlot(nn.Module):
         column_ids: list[list[int]],
         column_ids_lengths: list[int],
     ) -> None:
-        """
-        Build prompt embeddings and (optionally) the attention mask.
-        """
         num_feature_cols = len(column_ids) - 1
         device = next(self.backbone.parameters()).device
 
-        # text embeddings
         flat_ids = torch.tensor(
             [tok for seg in column_ids for tok in seg],
             dtype=torch.long, device=device,
         )
         embed_layer = self.backbone.get_input_embeddings()
         with torch.no_grad():
-            text_embeds = embed_layer(flat_ids).float()  # (total_text_tokens, d_llm)
+            text_embeds = embed_layer(flat_ids).float()
 
-        # prompt mask
         total_len = sum(column_ids_lengths) + num_feature_cols
         prompt_mask = torch.zeros(total_len, dtype=torch.bool, device=device)
         pos = 0
@@ -115,44 +111,40 @@ class LLMSlot(nn.Module):
                 pos += 1
         self.prompt = nn.Parameter(text_embeds)
         self.register_buffer('prompt_mask', prompt_mask)
+        self.register_buffer('text_indices', (~prompt_mask).nonzero(as_tuple=True)[0])
+        self.register_buffer('feat_indices', prompt_mask.nonzero(as_tuple=True)[0])
 
         if self.attn_type == 'causal':
             attn_mask = None
         elif self.attn_type == 'bidir':
             attn_mask = _build_bidir_mask(total_len).to(device)
         elif self.attn_type == 'structured':
-            feat_indices = prompt_mask.nonzero(as_tuple=True)[0]
             attn_mask = _build_structured_mask(
-                total_len, feat_indices, column_ids_lengths
+                total_len, self.feat_indices, column_ids_lengths
             ).to(device)
 
         self.register_buffer('attn_mask', attn_mask)
         print(f"Total Sequence Length: {total_len}")
 
+
     def _build_inputs(self, x: torch.Tensor) -> torch.Tensor:
-        """Fill input embeddings with feature tokens."""
         B = x.shape[0]
         total_len = self.prompt_mask.shape[0]
 
-        text_indices = (~self.prompt_mask).nonzero(as_tuple=True)[0]
-        feat_indices = self.prompt_mask.nonzero(as_tuple=True)[0]
+        full = x.new_zeros(B, total_len, self.llm_dim)
+        full[:, self.text_indices] = self.prompt.to(x.dtype)
+        full[:, self.feat_indices] = x
+        return full
 
-        text_idx_exp = text_indices.view(1, -1, 1).expand(B, -1, self.llm_dim)
-        feat_idx_exp = feat_indices.view(1, -1, 1).expand(B, -1, self.llm_dim)
-        prompt_exp = self.prompt.to(x.dtype).unsqueeze(0).expand(B, -1, -1)
-
-        inputs_embeds = torch.zeros(B, total_len, self.llm_dim, dtype=x.dtype, device=x.device)
-        inputs_embeds = inputs_embeds.scatter(1, text_idx_exp, prompt_exp)
-        inputs_embeds = inputs_embeds.scatter(1, feat_idx_exp, x)
-        return inputs_embeds
 
     def _get_attention_mask(self, B: int, dtype: torch.dtype):
         if self.attn_mask is None:
             return None
         mask = self.attn_mask.to(dtype=dtype).expand(B, -1, -1, -1)
+        if "llama" in self.backbone.config.model_type.lower():
+            return mask
         return {"full_attention": mask}
 
-    # ------------------------------------------------------------------
     def forward(
         self,
         x_num: torch.Tensor,

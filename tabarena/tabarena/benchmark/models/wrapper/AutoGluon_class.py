@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os, glob
 import copy
 import gc
 import shutil
@@ -270,3 +271,14 @@ class AGSingleBagWrapper(AGSingleWrapper):
 
         per_child_test_preds = [preds_child.astype(np.float32) for preds_child in per_child_test_preds]  # memory opt
         return per_child_test_preds
+
+    def _remove_model(self, assert_single_model: bool = True):
+        model_names = self.predictor.model_names(can_infer=True)
+        if assert_single_model:
+            assert len(model_names) == 1
+            model_name = self.predictor.model_names()[0]
+        else:
+            model_name = self.predictor.model_best
+        model = self.predictor._trainer.load_model(model_name)
+        for pkl_file in glob.glob(os.path.join(model.path, "**/*.pkl"), recursive=True):
+            os.unlink(pkl_file)

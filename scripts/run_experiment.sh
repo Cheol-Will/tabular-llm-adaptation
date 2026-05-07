@@ -1,10 +1,7 @@
-# exp_name="260420-LLMRead-GradClip"
-# exp_name="260426-BaselineBidir"
-# exp_name="260424-next_token_pred"
-# exp_name="260429-LB-Bidir"
-# exp_name="260430-LS-Bidir"
-attn_type="structured"
-exp_name="260501-2-LS-$attn_type"
+attn_type="bidir"
+exp_name="260504-LS-qwen-$attn_type"
+# model_name="meta-llama/Llama-3.2-1B"
+model_name=""Qwen/Qwen2.5-0.5B""
 model="LLMSlot"
 
 # model="LLMAdapter"
@@ -19,7 +16,13 @@ python experiment/main.py \
     --exp_name $exp_name \
     --num_random_configs $num_random_configs \
     --attn_type $attn_type \
-    --batch_size 512
+    --model_name $model_name  \
+    --num_epochs 1 \
+    --task_ids 363621 363626 363629 363698
+
+    # --task_ids 363612 363625 363675 363707
+    # --model_name "Qwen/Qwen2.5-0.5B" \
+    # --task_ids 363707
     # --task_ids 363612 363625 363675 363707
     # --task_ids 363621 363626 363629 363698
     
