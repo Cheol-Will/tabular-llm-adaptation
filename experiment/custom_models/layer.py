@@ -66,9 +66,9 @@ class NumEmbeddingLayer(nn.Module):
     def __init__(
         self,
         num_num_features: int,
-        num_embedding_type: str, # [linear, linear-relu, plr, ple]
+        num_embedding_type: str, # [linear, linear-relu, plr, pwl]
         token_dim: int,
-        bins = None,
+        bins: list[torch.Tensor] = None,
         # *,
         # num_emb_sigma: float = 0.01,
         # n_frequencies: int = None,
@@ -93,10 +93,14 @@ class NumEmbeddingLayer(nn.Module):
                 # activation=False,
                 # lite=num_emb_lite
             )
-        elif num_embedding_type == 'ple': 
+        elif num_embedding_type == 'pwl': 
             # need to pass pre-computed bins
             assert bins is not None
-            raise NotImplementedError
+            print(f"Use PiecewiseLinearEmbeddings.")
+            # print(f"Use PiecewiseLinearEmbeddings with \n{bins}")
+            self.num_embedding = PiecewiseLinearEmbeddings(
+                bins, token_dim, activation=False,
+            )
         else:
             raise ValueError(f"Unknown numerical embedding type: {num_embedding_type}")
 
@@ -112,6 +116,7 @@ class FeatureTokenizer(nn.Module):
         cardinalities: list[int],
         token_dim: int,
         num_embedding_type: str = 'plr',
+        bins = None,
     ):  
         super().__init__()
         self.num_num_features = num_num_features
@@ -122,6 +127,7 @@ class FeatureTokenizer(nn.Module):
                 num_num_features,
                 num_embedding_type, # [linear, linear-relu, plr, ple]
                 token_dim,
+                bins,
             )
 
         if self.num_cat_features > 0:

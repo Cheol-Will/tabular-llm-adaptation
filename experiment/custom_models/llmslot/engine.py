@@ -33,6 +33,9 @@ from ..preprocessor import CustomOrdinalEncoder, SmoothClipTransformer
 from .model import LLMSlot
 from dataset.data_utils import get_initial_prompt
 
+
+from pytabkit.models.nn_models.rtdl_num_embeddings import compute_bins
+
 if TYPE_CHECKING:
     from autogluon.core.metrics import Scorer
 
@@ -158,6 +161,7 @@ def _ddp_worker(
     project_name: str = 'LLMSlot',
     column_ids: list | None = None,
     column_ids_lengths: list | None = None,
+    bins: list[torch.Tensor] = None,
 ):
     use_ddp = world_size > 1
 
@@ -195,6 +199,8 @@ def _ddp_worker(
         num_classes=n_classes,
         mlp_ratio=config.get("mlp_ratio", 1.0),
         attn_type=config.get("attn_type"),
+        prediction_method=config.get("prediction_method", "next_token_pred"),
+        bins=bins,
     ).to(device)
 
     if column_ids is not None:
@@ -522,9 +528,11 @@ class LLMSlotImplementation:
         cardinalities = self.ord_enc_.get_cardinalities() if self.cat_col_names_ else []
 
         num_embedding_type=self.config.get("num_embedding_type", "plr")
-        if num_embedding_type == 'ple':
-            # TODO: compute bins and pass it to the model
-            NotImplementedError
+        if num_embedding_type == 'pwl':
+            n_bins = self.config.get("num_bins_pwl", 48)
+            bins = compute_bins(X=X_train_num, n_bins=n_bins)
+        else:
+            bins = None
 
         # Build prompt metadata: columns ordered to match feature_tokenizer (num then cat)
         model_name = self.config.get("model_name", "Qwen/Qwen2.5-0.5B")
@@ -558,7 +566,7 @@ class LLMSlotImplementation:
             self.early_stopping_metric, model_save_path,
             start_time, time_to_fit_in_seconds, master_port,
             self.use_wandb, task_id, project_name,
-            column_ids, column_ids_lengths,
+            column_ids, column_ids_lengths, bins
         )
 
         if world_size > 1:
@@ -580,15 +588,18 @@ class LLMSlotImplementation:
             lora_dropout=self.config.get("lora_dropout", 0.1),
             bias="none",
         )
+        config = self.config
         self.model = LLMSlot(
             num_num_features=num_num_features,
             cardinalities=cardinalities,
-            model_name=self.config.get("model_name", "Qwen/Qwen2.5-0.5B"),
-            num_embedding_type=self.config.get("num_embedding_type", "plr"),
-            token_dim=self.config.get("token_dim", 16),
+            model_name=config.get("model_name", "Qwen/Qwen2.5-0.5B"),
+            num_embedding_type=config.get("num_embedding_type", "plr"),
+            token_dim=config.get("token_dim", 16),
             num_classes=self.n_classes_,
-            mlp_ratio=self.config.get("mlp_ratio", 1.0),
-            attn_type=self.config.get("attn_type"),
+            mlp_ratio=config.get("mlp_ratio", 1.0),
+            attn_type=config.get("attn_type"),
+            prediction_method=config.get("prediction_method", "next_token_pred"),
+            bins=bins,
         ).to(self.device_)
         self.model.create_prompt(self.column_ids_, self.column_ids_lengths_)
         self.model = get_peft_model(self.model, lora_config)

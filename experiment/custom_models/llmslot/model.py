@@ -54,6 +54,7 @@ class LLMSlot(nn.Module):
         mlp_ratio: float = 1.0,
         attn_type: str = 'causal', # 'causal' | 'bidir' | 'structured'
         prediction_method: str = 'next_token_pred',
+        bins: list[torch.Tensor] = None,
     ):
         super().__init__()
         assert attn_type in ('causal', 'bidir', 'structured')
@@ -70,7 +71,7 @@ class LLMSlot(nn.Module):
         self.llm_dim = self.backbone.config.hidden_size
 
         self.feature_tokenizer = FeatureTokenizer(
-            num_num_features, cardinalities, token_dim, num_embedding_type,
+            num_num_features, cardinalities, token_dim, num_embedding_type, bins
         )
         self.mlp_adapter = nn.Sequential(
             nn.Linear(token_dim, self.llm_dim // 4),

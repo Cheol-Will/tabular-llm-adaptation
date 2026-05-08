@@ -27,6 +27,7 @@ def get_experiment_configs(
             "batch_size": args.batch_size if args.batch_size is not None else 128,
             "mlp_fine_tune": args.mlp_fine_tune,
             "attn_type": args.attn_type,
+            "num_embedding_type": args.num_embedding_type,
             "prediction_method": args.prediction_method,
             "project_name": f"{args.model}_{args.exp_name}", # for wandb
             "use_wandb": args.use_wandb,
@@ -48,6 +49,7 @@ def get_experiment_configs(
         "batch_size": Categorical(128, 256),
         "mlp_fine_tune": args.mlp_fine_tune,
         "attn_type": args.attn_type,
+        "num_embedding_type": args.num_embedding_type,
         "prediction_method": args.prediction_method,
         "project_name": f"{args.model}_{args.exp_name}", # for wandb
         "use_wandb": args.use_wandb,
@@ -82,6 +84,7 @@ def get_manual_config(args):
             "batch_size": 128,
             "mlp_fine_tune": args.mlp_fine_tune,
             "attn_type": args.attn_type,
+            "num_embedding_type": args.num_embedding_type,
             "prediction_method": args.prediction_method,
             "project_name": f"{args.model}_{args.exp_name}",
             "use_wandb": args.use_wandb,
