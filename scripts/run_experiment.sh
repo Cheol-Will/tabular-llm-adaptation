@@ -1,24 +1,29 @@
-attn_type="bidir"
-exp_name="260504-LS-qwen-$attn_type"
+# attn_type="bidir"
+# attn_type="causal"
+attn_type="structured"
+num_embedding_type="pwl"
+exp_name="260508-LS-qwen-$attn_type-num_emb-$num_embedding_type"
+
 # model_name="meta-llama/Llama-3.2-1B"
 model_name=""Qwen/Qwen2.5-0.5B""
 model="LLMSlot"
 
-# model="LLMAdapter"
-# model="LLMBaseline"
-# model_cls_name="LLMBaselineBidirectional"
-# model_cls_name="LLMRead"
-attn_type="structured"
-exp_name="260502-LS-$attn_type"
+# exp_name="260502-LS-$attn_type"
 num_random_configs=10 # for fast experiment
 python experiment/main.py \
     --model $model \
     --exp_name $exp_name \
     --num_random_configs $num_random_configs \
     --attn_type $attn_type \
+    --num_embedding_type $num_embedding_type \
     --model_name $model_name  \
-    --num_epochs 1 \
-    --task_ids 363621 363626 363629 363698
+    --task_subset small-features
+    
+    
+    
+    # --task_ids 363629 363707 363698 363612 363675
+    # --task_subset small
+    # --task_ids 363621 363626 363629 363698
 
     # --task_ids 363612 363625 363675 363707
     # --model_name "Qwen/Qwen2.5-0.5B" \
@@ -42,7 +47,6 @@ python experiment/main.py \
     # --task_ids 363629 # 
     # --task_ids 363675 # 
     # --task_ids 363612
-    # --subset small
     # --task_ids 363626
 
 

@@ -56,13 +56,18 @@
 
 # exp_name="260421-3"
 # exp_name="260423-bidir"
-exp_name="260429-LA-Bidir"
-model="LLMAdapter"
+# exp_name="260429-LA-Bidir"
+attn_type="bidir"
+attn_type="causal"
+attn_type="structured"
+exp_name="260506-LS-qwen-$attn_type"
+model="LLMSlot"
+# model="LLMAdapter"
 # exp_name="260429-LB-Bidir"
 # model="LLMBaseline"
 
 python experiment/evaluate.py \
     --exp_name $exp_name \
-    --model "$model$exp_name" \
-    # --model "$model" \
-    # --generate_cache \
+    --model "$model" \
+    --generate_cache \
+    # --model "$model$exp_name" \
