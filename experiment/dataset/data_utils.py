@@ -50,20 +50,19 @@ def get_column_mask(tokenizer, row, max_length: int | None = None):
 
 
 def get_initial_prompt(tokenizer, row, y):
-    """
-    Docstring for get_initial_prompt
-    """
     target_name = y.name if y.name is not None else "target"
     items = list(row.items())
     segments = []
     for col, _ in items:
         segments.append(f"{col} is")
     segments.append(f"{target_name} is")
-    
+
     column_ids = []
     column_ids_lengths = []
-    for seg in segments:
+    for i, seg in enumerate(segments):
         ids = tokenizer.encode(seg, add_special_tokens=False)
+        if i == len(segments) - 1:  # target segment
+            ids = ids + [tokenizer.eos_token_id]
         column_ids.append(ids)
         column_ids_lengths.append(len(ids))
 

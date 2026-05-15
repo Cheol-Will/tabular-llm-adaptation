@@ -4,7 +4,7 @@ Shared utilities for analysis framework.
 
 from __future__ import annotations
 
-from typing import Type
+from typing import Literal
 
 import os
 import importlib
@@ -17,7 +17,6 @@ import numpy as np
 import pandas as pd
 from transformers import AutoTokenizer
 
-
 from tabarena.benchmark.models.wrapper.abstract_class import AbstractExecModel
 from autogluon.core.data.label_cleaner import LabelCleanerMulticlassToBinary
 from autogluon.core.models import AbstractModel
@@ -25,15 +24,13 @@ from tabarena.benchmark.models.wrapper.ag_model import AGModelWrapper
 # from autogluon.core.models.wrapper.ag_model import AGModelWrapper
 
 from tabarena.utils.pickle_utils import fetch_all_pickles
-from tabarena.benchmark.task.openml import OpenMLS3TaskWrapper, OpenMLTaskWrapper
+from tabarena.benchmark.task.openml import OpenMLTaskWrapper
 
-from utils import get_model_experiments
-from custom_models.llmadapter.wrapper import LLMAdapterModel
-from custom_models.llmbaseline.wrapper import LLMBaselineModel
 
 EXCLUDE_KEYS = {"ag_args_ensemble", "ag_args_fit", "gpu_ids"}
 CONTINUOUS_HPS = {"dropout", "lora_dropout", "lora_lr", "lr", "weight_decay"}
 DISCRETE_HPS = {"batch_size", "lora_rank", "lora_alpha", "token_dim", "num_buckets"}
+TaskType = Literal["regression", "binclass", "multiclass"]
 
 
 def load_pickle(path: Path) -> dict:
@@ -47,7 +44,6 @@ def fetch_result_files(base_dir: Path, suffix: str = "results.pkl") -> list[Path
     if not base_dir.exists():
         return []
     return fetch_all_pickles(dir_path=str(base_dir), suffix=suffix)
-
 
 
 def extract_flat_hps(hp_dict: dict) -> dict:
@@ -257,7 +253,6 @@ def plot_hp_distributions(
     print(f"  [SAVED] HP distribution plot: {out_path}")
 
 
-
 def analyze_hpo(
     model: str,
     exp_name: str,
@@ -332,10 +327,6 @@ def analyze_hpo(
     print(f"HPO Analysis Complete!")
     print(f"{'='*80}\n")
 
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Regression Distribution Analysis
-# ─────────────────────────────────────────────────────────────────────────────
 
 def analyze_reg_dist(
     model: str,
@@ -444,7 +435,7 @@ def analyze_reg_dist(
         row, col = divmod(j, n_cols)
         axes[row, col].set_visible(False)
 
-    fig.suptitle(f"Regression Distribution — {model} | task_id={task_id}", fontsize=13)
+    fig.suptitle(f"Regression Distribution - {model} | task_id={task_id}", fontsize=13)
     plt.tight_layout()
 
     out_path = output_dir / f"reg_dist_{model}_{task_id}.png"
@@ -472,7 +463,7 @@ def _plot_attn_map(
     attn_np = attention.cpu().float().numpy() if hasattr(attention, 'cpu') else np.array(attention)
     avg_attn = attn_np.mean(axis=0)
 
-    # decode token labels — accept either pre-decoded string list (LLMSlot) or token ID tensor (LLMBaseline)
+    # decode token labels: accept either pre-decoded string list (LLMSlot) or token ID tensor (LLMBaseline)
     if isinstance(input_ids, list) and input_ids and isinstance(input_ids[0], str):
         tokens = input_ids
     elif input_ids is not None and tokenizer is not None:
@@ -515,6 +506,7 @@ def plot_attn_map(
     N = attentions.shape[0]
     # LLMSlot returns shared string labels for all samples; LLMBaseline returns per-sample token ID tensors
     shared_labels = isinstance(input_ids, list) and input_ids and isinstance(input_ids[0], str)
+    
     for i in range(N):
         attention = attentions[i].mean(dim=1)  # (L, S, S)
         ids = input_ids if shared_labels else (input_ids[i] if input_ids is not None else None)
@@ -522,6 +514,41 @@ def plot_attn_map(
         _plot_attn_map(attention, path, input_ids=ids, tokenizer=tokenizer)
 
     print(f"Plot saved into {path}")
+
+
+
+def find_failure_case(
+    model, 
+    X: np.ndarray, 
+    y: np.ndarray, 
+    task_type_: Literal["regression", "binclass", "multiclass"]
+):
+    if task_type_ == "regression":
+        y_pred = model.predict(X) if hasattr(model, 'predict') else model._predict_prob(X)
+        errors = (y - y_pred) ** 2
+        
+    elif task_type_ in ["binclass", "multiclass"]:
+        y_pred = model._predict_prob(X)
+        eps = 1e-15
+        y_pred_clipped = np.clip(y_pred, eps, 1 - eps)
+        
+        if y_pred_clipped.ndim == 1 or y_pred_clipped.shape[1] == 1:
+            y_p = y_pred_clipped.flatten()
+            y_t = y.flatten()
+            errors = -(y_t * np.log(y_p) + (1 - y_t) * np.log(1 - y_p))
+        else:
+            correct_class_probs = y_pred_clipped[np.arange(len(y)), y.astype(int).flatten()]
+            errors = -np.log(correct_class_probs)
+    else:
+        raise ValueError(f"Unknown task_type_: {task_type_}")
+
+    k = 10
+    top_k_errors = errors.nlargest(k)
+
+    print(f"Top-k Errors:\n{top_k_errors.values}")
+    print(f"Top-k Error Indices:\n{top_k_errors.index.tolist()}")
+    
+    return top_k_errors.index.tolist()
 
 
 def sample_indices(y, n=10, random_state=42):
@@ -545,7 +572,6 @@ def sample_indices(y, n=10, random_state=42):
 def analyze_attn_map(
     args,
     model: str,
-    exp_name: str,
     task_id: str,
     output_dir: Path,
     model_cls_name: str = None,
@@ -555,9 +581,6 @@ def analyze_attn_map(
 
     task = OpenMLTaskWrapper.from_task_id(task_id=task_id)
     X, y, X_test, y_test = task.get_train_test_split(fold=0, repeat=0, sample=0)
-    idx = sample_indices(y_test)
-    X_test = X_test.loc[idx]
-    y_test = y_test.loc[idx]
     
     # load wrapper
     wrapper_module_path = f"custom_models.{model.lower()}.wrapper"
@@ -568,7 +591,7 @@ def analyze_attn_map(
     # load hp config
     config_module = importlib.import_module(f"custom_models.{model.lower()}.config_generator")
     hyperparameters = config_module.get_manual_config(args)
-    hyperparameters["num_epochs"] = 30
+    hyperparameters["num_epochs"] = 100
     ckpt_path = os.path.join(output_dir, "model")
     
     if os.path.exists(ckpt_path):
@@ -586,6 +609,16 @@ def analyze_attn_map(
         ag_model.fit(X=X, y=y, X_val=X_test, y_val=y_test)
         ag_model.save(ckpt_path)
 
+    # Extract task type
+    problem_type = task.problem_type
+    task_type_: TaskType = "binclass" if problem_type == "binary" else problem_type
+
+    # idx = sample_indices(y_test)
+    idx = find_failure_case(ag_model, X_test, y_test, task_type_)
+
+    X_test = X_test.loc[idx]
+    y_test = y_test.loc[idx]
+    print(X_test)
     attentions, inputs = ag_model.get_attn_map(X_test)  # (N, L, H, F, F)
 
     tokenizer = AutoTokenizer.from_pretrained("Qwen/Qwen2.5-0.5B", padding_side="left")

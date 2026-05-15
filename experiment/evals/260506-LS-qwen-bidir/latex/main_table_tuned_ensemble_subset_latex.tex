@@ -1,0 +1,34 @@
+\begin{table}[htbp]
+\centering
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{ll|rrrrrrrrrr|r}
+\toprule
+ &  & \multicolumn{3}{c}{roc\_auc (\uparrow)} & \multicolumn{5}{c}{rmse (\downarrow)} & \multicolumn{2}{c}{log\_loss (\downarrow)} & \multicolumn{1}{|c}{\textbf{ELO} ($\uparrow$)} \\
+\cmidrule(lr){3-5} \cmidrule(lr){6-10} \cmidrule(lr){11-12}
+\textbf{Method} & \textbf{Type} & \textbf{Fitness} & \textbf{Blood} & \textbf{Diabetes} & \textbf{Fiat500} & \textbf{QSAR-Fish} & \textbf{Airfoil} & \textbf{Concrete} & \textbf{Insurance} & \textbf{Maternal} & \textbf{Phishing} & \textbf{ELO} \\
+\textit{task\_id} &  & \textit{363671} & \textit{363621} & \textit{363629} & \textit{363615} & \textit{363698} & \textit{363612} & \textit{363625} & \textit{363675} & \textit{363685} & \textit{363707} &  \\
+\midrule
+\midrule
+CAT & ML & 0.8031 & 0.7078 & 0.8392 & 700.0402 & 0.9108 & 1.1943 & 4.3493 & 4099.4151 & 0.4235 & 0.2107 & 1451 \\
+EBM & ML & 0.8049 & 0.7111 & \textbf{0.8519} & 711.9699 & 0.9339 & 1.8231 & 4.3780 & 4058.6073 & 0.4954 & 0.2358 & 1344 \\
+KNN & ML & 0.7948 & 0.7039 & 0.8227 & 742.5809 & 0.9347 & 2.2261 & 6.0604 & 4601.1373 & 0.4037 & 0.2645 & 1056 \\
+LR & ML & 0.8015 & \textbf{0.7539} & 0.8264 & 728.5160 & 0.9769 & 4.7351 & 7.9030 & 5578.9390 & 0.7640 & 0.3364 & 1008 \\
+REALMLP\_GPU & DL & 0.8050 & 0.7298 & 0.8459 & 690.2746 & 0.9015 & 1.0119 & 4.1414 & 4071.1784 & 0.4014 & 0.2129 & 1682 \\
+REALTABPFN-V2.5 & Foundation & \textbf{0.8097} & 0.7304 & 0.8432 & \textbf{687.6317} & \textbf{0.8867} & \textbf{0.8704} & \textbf{3.7666} & 4030.7247 & \textbf{0.3802} & \textbf{0.2031} & \textbf{1912} \\
+\midrule
+FTTransformer & DL & 0.8070 & 0.7160 & 0.8275 & 884.3534 & 1.0236 & 3.1313 & 6.2631 & 4328.3794 & 0.5517 & 0.2247 & 1105 \\
+LLMBaseline & LLM & nan & 0.7094 & 0.7898 & nan & 1.0715 & nan & 8.5134 & 5838.9975 & 0.8347 & 0.2451 & 875 \\
+LLMBaseline260429-LB-Bidir & LLM & nan & 0.6900 & 0.7847 & nan & 1.0266 & 2.5928 & 7.4705 & 4217.8782 & nan & 0.2955 & 936 \\
+LLMBaselineBidirectional260426-BaselineBidir & LLM & nan & 0.6761 & 0.7845 & nan & 0.9967 & 1.6478 & 4.9436 & 4343.2928 & nan & nan & 971 \\
+LLMSlot260506-LS-qwen-bidir & LLM & 0.8019 & 0.7322 & 0.8357 & 711.1720 & 0.9284 & 1.0804 & 4.7314 & 4061.0565 & 0.5334 & 0.2266 & 1358 \\
+LLMSlot260506-LS-qwen-causal & LLM & 0.8033 & 0.7224 & 0.8330 & 714.3015 & 0.9351 & 1.1083 & 4.6445 & 4050.3902 & 0.5392 & 0.2175 & 1349 \\
+LLMSlot260506-LS-qwen-structured & LLM & 0.8041 & 0.7250 & 0.8290 & 710.8331 & 0.9347 & 1.0937 & 4.7205 & \textbf{4029.8931} & 0.5264 & 0.2207 & 1376 \\
+LLMSlot260508-LS-qwen-bidir-num\_emb-pwl & LLM & 0.8034 & 0.7031 & 0.8246 & 710.0760 & 0.9228 & 1.0921 & 4.2291 & 4073.0360 & 0.4514 & 0.2275 & 1346 \\
+LLMSlot260508-LS-qwen-causal-num\_emb-pwl & LLM & 0.8038 & 0.6983 & 0.8187 & 709.7153 & 0.9197 & 1.0841 & 4.1548 & 4071.5983 & 0.4749 & 0.2207 & 1361 \\
+LLMSlot260508-LS-qwen-structured-num\_emb-pwl & LLM & 0.8030 & 0.6962 & 0.8182 & 705.6074 & 0.9295 & 1.0416 & 4.2892 & 4064.6367 & 0.4613 & 0.2229 & 1340 \\
+\bottomrule
+\end{tabular}
+}
+\caption{Results (tuned_ensemble)}
+\label{tab:results_tuned_ensemble}
+\end{table}

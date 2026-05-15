@@ -58,7 +58,7 @@ def _evaluate_worker(
     y_std: float,
     early_stopping_metric,
     device: torch.device,
-    eval_metric=None,
+    eval_metric=None, # used only for logging
 ) -> float:
     """Run evaluation on rank-0 using the unwrapped model (no DDP sync needed)."""
     model.eval()
@@ -530,14 +530,19 @@ class LLMSlotImplementation:
         num_embedding_type=self.config.get("num_embedding_type", "plr")
         if num_embedding_type == 'pwl':
             n_bins = self.config.get("num_bins_pwl", 48)
-            bins = compute_bins(X=X_train_num, n_bins=n_bins)
+            if num_num_features:
+                bins = compute_bins(X=X_train_num, n_bins=n_bins)
+            else: 
+                bins = None
         else:
             bins = None
 
         # Build prompt metadata: columns ordered to match feature_tokenizer (num then cat)
+
         model_name = self.config.get("model_name", "Qwen/Qwen2.5-0.5B")
+        local_model_path = f"./pretrained_llm/{model_name}"
         tokenizer = AutoTokenizer.from_pretrained(
-            model_name,
+            local_model_path,
             token=os.getenv("HUGGING_FACE_TOKEN"),
             )
         ordered_cols = self.num_col_names_ + self.cat_col_names_
@@ -662,14 +667,15 @@ class LLMSlotImplementation:
     
     def _build_sequence_labels(self) -> list[str]:
         model_name = self.config.get("model_name", "Qwen/Qwen2.5-0.5B")
-        tokenizer = AutoTokenizer.from_pretrained(model_name)
+        local_model_path = f"./pretrained_llm/{model_name}"
+        tokenizer = AutoTokenizer.from_pretrained(local_model_path)
         ordered_cols = self.num_col_names_ + self.cat_col_names_
         n_feature_cols = len(self.column_ids_) - 1  # last segment is target, no slot after it
         labels = []
         for i, ids in enumerate(self.column_ids_):
             labels.extend(tokenizer.convert_ids_to_tokens(ids))
             if i < n_feature_cols:
-                labels.append(f"[{ordered_cols[i]}]")
+                labels.append(f"[col-{i}]]")
         return labels
 
     def get_attn_map(self, X: pd.DataFrame) -> tuple[torch.Tensor, list[str]]:

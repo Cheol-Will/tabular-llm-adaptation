@@ -1,8 +1,10 @@
 #!/bin/bash
 set -e
 
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
 echo "=== Installing UV ==="
-pip install uv
+python3 -m pip install uv
 export PATH="$HOME/.local/bin:$PATH" 
 
 git clone https://github.com/Cheol-Will/tabular-llm-adaptation.git tabarena

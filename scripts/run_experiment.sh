@@ -1,145 +1,35 @@
-# attn_type="bidir"
 # attn_type="causal"
-attn_type="structured"
-num_embedding_type="pwl"
-exp_name="260508-LS-qwen-$attn_type-num_emb-$num_embedding_type"
+# attn_type="bidir"
+attn_type="structured_v2"
+# num_embedding_type="pwl"
+# exp_name="260508-LS-qwen-$attn_type-num_emb-$num_embedding_type"
+# exp_name="260514-LS-qwen-$attn_type-num_emb-$num_embedding_type"
+# exp_name="260514-LS-qwen-$attn_type"
+exp_name="260506-LS-qwen-$attn_type"
+
+# attn_type="causal"
+# num_boosting=8
+# boosting_token="eos"
+# boosting_token="trainable"
+# exp_name="260510-LSB-qwen-$attn_type-$boosting_token$num_boosting"
 
 # model_name="meta-llama/Llama-3.2-1B"
-model_name=""Qwen/Qwen2.5-0.5B""
+model_name="Qwen/Qwen2.5-0.5B"
 model="LLMSlot"
+# model="LLMSlotBoost"
 
-# exp_name="260502-LS-$attn_type"
 num_random_configs=10 # for fast experiment
 python experiment/main.py \
     --model $model \
     --exp_name $exp_name \
     --num_random_configs $num_random_configs \
     --attn_type $attn_type \
-    --num_embedding_type $num_embedding_type \
     --model_name $model_name  \
-    --task_subset small-features
-    
-    
-    
-    # --task_ids 363629 363707 363698 363612 363675
-    # --task_subset small
-    # --task_ids 363621 363626 363629 363698
+    --task_subset small-features \
+    --use_tail_task_ids \
+    # --num_embedding_type $num_embedding_type \
 
-    # --task_ids 363612 363625 363675 363707
-    # --model_name "Qwen/Qwen2.5-0.5B" \
-    # --task_ids 363707
-    # --task_ids 363612 363625 363675 363707
-    # --task_ids 363621 363626 363629 363698
-    
-    # --task_ids 363707 363625 
-    # --task_ids 363698 363626 
-    # --task_ids 363612 363625
-    
-    # --task_ids 363675 363707
-    # --task_ids 363621 363626 
-    # --task_ids 363629 363698 
-    # --task_ids 
-
-
-    # --task_ids 363698 
-    # --task_ids 363625
-    # --task_ids 363707 # multi-clf 363614 363707
-    # --task_ids 363629 # 
-    # --task_ids 363675 # 
-    # --task_ids 363612
-    # --task_ids 363626
-
-
-    # --task_ids 363675
-    # --task_ids 363629
-    # --task_ids 363698
-    # --task_ids 363612 363625 363675 363707
-    # --task_ids 363707 # multi-clf 363614 363707
-    # --task_ids 363675  # tmux 0 -ing
-    # --model_cls_name $model_cls_name \
-    # --subset small
-    # --task_ids 363626 363675 # tmux 0 -ing
-    # --task_ids 363612 363698  # tmux todo
-    # --task_ids 363621 363625 363629  # tmux 1
-
-    # --task_ids 363626 363675
-    # --task_ids 363612 363698  
-    # --task_ids 
-    # --prediction_method next_token_pred \
-    # --task_ids 
-    
-    
-    # --task_ids  
-    # --task_ids   363629 363626 
-    # --problem_type "binary"
-    # --use_bidir_attn \
-    # --task_ids  
-    # --problem_type "binary"
-    # --problem_type "reg"
-
-
-    # --problem_type "reg" \
-    # --use_tail_task_ids
-    # --problem_type "binary" \
-    # --problem_type "multi"
-
-    
-    # --problem_type "reg"
-    # --problem_type "binary"
-    # --task_ids 363612
-    # --task_ids   363629 363626 363625
-    # --task_ids 363621
-    # --task_ids 363612
-    # --model_cls_name $model_cls_name \
-    # --problem_type "binary"
-    # --problem_type "reg"
-
-# exp_name="260413-LLMCT"
-# model="LLMColumnSpecificToken"
-# python experiment/main.py \
-#     --model $model \
-#     --exp_name $exp_name \
-#     --num_random_configs $num_random_configs \
-#     --problem_type "multi"
-
-# exp_name="260402-mlp_ratio"
-# exp_name="260402-mlp_ratio-tune_mlp"
-# model="LLMAdapterEngineered"
-# python experiment/main.py \
-#     --model $model \
-#     --exp_name $exp_name \
-#     --num_random_configs $num_random_configs \
-#     --problem_type "reg"
-    # --problem_type "multi"
-
-
-# num_random_configs=20 # for fast experiment
-# exp_name="260402-mlp_ratio-tune_mlp"
-# model="LLMAdapterReg"
-# python experiment/main.py \
-#     --model $model \
-#     --exp_name $exp_name \
-#     --num_random_configs $num_random_configs \
-    # --problem_type "reg"
-
-
-# model_cls_name="LLMBaselineBidirectional"
-# python experiment/main.py \
-#     --model $model \
-#     --exp_name $exp_name \
-#     --model_cls_name $model_cls_name \
-#     --subset "small-large-features"
-#     # --subset "small"
-
-
-# model="TFMLLM"
-# exp_name="260403-mlp_ratio-mlp_fine_tune"
-# python experiment/main.py \
-#     --model $model \
-#     --exp_name $exp_name \
-#     --num_random_configs $num_random_configs \
-#     --problem_type "reg"
-#     # --problem_type "binary"
-#     # --problem_type "multi"
-    # --task_ids 363707
-# 
+    # --task_subset small-features \
+    # --task_ids 363675 363615 363629 \
+    # --num_boosting $num_boosting \
+    # --boosting_token  $boosting_token \

@@ -9,7 +9,7 @@ import pandas as pd
 from tabarena.nips2025_utils.end_to_end import EndToEnd
 from tabarena.nips2025_utils.compare import get_subset_results
 from tabarena.website.website_format import format_leaderboard
-from utils_analysis import pivot_main_table, save_latex, clean_method_name
+from evaluate_utils import pivot_main_table, save_latex, clean_method_name
 
 
 def generate_cache(args):
@@ -91,9 +91,9 @@ def plot_elo(args, end_to_end_results, eval_dir) -> pd.DataFrame:
         use_model_results=False,  # If False: Will instead use the ensemble/HPO results
         # new_result_prefix="260330",
     )
-    leaderboard_website = format_leaderboard(df_leaderboard=leaderboard)
-    print(leaderboard_website.to_markdown(index=False))
-    print(f"Plot is saved into {eval_dir}")
+    # leaderboard_website = format_leaderboard(df_leaderboard=leaderboard)
+    # print(leaderboard_website.to_markdown(index=False))
+    # print(f"Plot is saved into {eval_dir}")
     return leaderboard
 
 
@@ -107,10 +107,25 @@ def summary_evaluate(args):
     methods = [
         "FTTransformer",
         "LLMBaseline",
+        ("LLMBaseline260429-LB-Bidir","260429-LB-Bidir"),
         ("LLMBaselineBidirectional260426-BaselineBidir", "260426-BaselineBidir"), # Token-Bidir
-        ("LLMAdapter260421-3", "260421-3"), # NumEmb-Causal
-        ("LLMAdapter260423-bidir", "260423-bidir"), # NumEmb-Bidir
-        ("LLMSlot260424-next_token_pred", "260424-next_token_pred"), # Token-NumEmb-Causal
+        # ("LLMAdapter260421-3", "260421-3"), # NumEmb-Causal
+        # ("LLMAdapter260429-LA-Bidir", "260429-LA-Bidir"),
+        # ("LLMAdapter260423-bidir", "260423-bidir"), # NumEmb-Bidir
+        # ("LLMSlot260424-next_token_pred", "260424-next_token_pred"), # Token-NumEmb-Causal
+        ("LLMSlot260506-LS-qwen-bidir", "260506-LS-qwen-bidir"),
+        ("LLMSlot260506-LS-qwen-causal", "260506-LS-qwen-causal"),
+        ("LLMSlot260506-LS-qwen-structured", "260506-LS-qwen-structured"),
+        ("LLMSlot260508-LS-qwen-bidir-num_emb-pwl", "260508-LS-qwen-bidir-num_emb-pwl"),
+        ("LLMSlot260508-LS-qwen-causal-num_emb-pwl", "260508-LS-qwen-causal-num_emb-pwl"),
+        ("LLMSlot260508-LS-qwen-structured-num_emb-pwl", "260508-LS-qwen-structured-num_emb-pwl"),
+        ("LLMSlotBoost260510-LSB-qwen-causal-eos4", "260510-LSB-qwen-causal-eos4"),
+        ("LLMSlotBoost260510-LSB-qwen-causal-trainable4", "260510-LSB-qwen-causal-trainable4"),
+        ("LLMSlot260514-LS-qwen-structured_v2", "260514-LS-qwen-structured_v2"),
+        ("LLMSlot260514-LS-qwen-structured_v2-num_emb-pwl", "260514-LS-qwen-structured_v2-num_emb-pwl"),
+        # ("LLMSlot260508-LS-qwen-structured-num_emb-pwl", "260508-LS-qwen-structured-num_emb-pwl"),
+        # ("LLMSlotBoost260510-LSB-qwen-causal-trainable8", "260510-LSB-qwen-causal-trainable8"),
+
         # (args.model, args.exp_name),
         # "LLMBaselineBidirectional",
         # "LLMBaselineBidirectionalPooling",

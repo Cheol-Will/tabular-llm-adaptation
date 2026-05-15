@@ -13,10 +13,11 @@ def get_parser():
     parser.add_argument("--exp_name", type=str, required=True)
     parser.add_argument("--num_random_configs", type=int, default=10) # 200 in paper
     parser.add_argument("--num_data", type=int, default=None) 
-    parser.add_argument("--subset", type=str, default='all', help="") 
+    parser.add_argument("--task_subset", type=str, default='all', help="") 
     parser.add_argument("--problem_type", type=str, default=None, help="") 
     parser.add_argument("--task_ids", type=int, nargs="+", default=None)
     parser.add_argument("--use_tail_task_ids", action="store_true")
+    parser.add_argument("--use_wandb", action="store_true")
 
     # common model hyperparameters
     parser.add_argument("--model_name", type=str, required=True)
@@ -24,8 +25,11 @@ def get_parser():
     parser.add_argument("--batch_size", type=int, default=None)
     parser.add_argument("--num_epochs", type=int, default=None)
     parser.add_argument("--attn_type", type=str, required=True)
+    parser.add_argument("--num_embedding_type", type=str, default='plr')
     parser.add_argument("--prediction_method", type=str, default="next_token_pred")
-    parser.add_argument("--use_wandb", action="store_true")
+    parser.add_argument("--num_boosting", type=int, default=1)
+    parser.add_argument("--boosting_token", type=str, default="eos")
+
     return parser
 
 def load_tid(name: str = 'tid'):
@@ -44,24 +48,20 @@ def filter_data(args):
     if args.num_data is not None:
         task_ids = task_ids[:args.num_data]
 
-    if args.subset == 'small':
+    if args.task_subset == 'small-features':
         task_ids =[
-            # binary
             363621,
-            363626,
-            363629,
-            # reg
-            363698,
             363612,
-            363625,
+            363671,
+            363685,
+            363698,
             363675,
-            # multi-class
+            363615,
+            363629,
+            363625,
             363707,
         ]       
 
-    if args.subset == 'small-large-features':
-        task_ids = [
-        ]
     if args.problem_type is not None:
         if args.problem_type == 'reg':
             task_ids = load_tid(name='tid_reg')

@@ -2,7 +2,7 @@ import torch
 from dataset.dataloader import TextLabelColumnTokenDataset
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from dataset.dataloader import serialize_data, get_column_mask
-from run_analysis import load_openml_data
+from tabarena.benchmark.task.openml import OpenMLTaskWrapper
 
 import argparse
 
@@ -23,7 +23,8 @@ def debug_llama():
 
     
 def get_response(task_id: int = 363621, idx: int = 0):
-    X, y, label = load_openml_data(task_id)
+    task = OpenMLTaskWrapper.from_task_id(task_id=task_id)
+    X, y, X_test, y_test = task.get_train_test_split(fold=0, repeat=0, sample=0)
     target_name = y.name if y is not None else "target"
     
     for i in range(idx):
@@ -116,12 +117,12 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--task_ids", type=int, nargs="+", default=None)
     args = parser.parse_args()
-    debug_llama()
+    # debug_llama()
     # print(args.task_ids)
 
     # debug_dataset_attn_mask()
     # get_response(363621, idx=9)
-    # get_response(363612)
+    get_response(363612, idx=1)
     # get_response(363629)
     # get_response(363671)
     # get_response(363615)

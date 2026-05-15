@@ -78,13 +78,9 @@ class LLMSlotModel(AbstractModel):
             **hyp
         )
         time_to_fit = None
-        # print(f"Initial time_to_fit: {time_to_fit}(s).")
-        # print(f"Initial time_limit: {time_limit}(s).")
 
         if time_limit is not None:
             time_to_fit = max(0.0, time_limit - (time.time() - start_time))
-
-        # print(f"Modified time_to_fit: {time_to_fit}(s).")
 
         with set_logger_level("custom_mlp", log_level):
             self.model.fit(

@@ -1,0 +1,48 @@
+\begin{table}[htbp]
+\centering
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{ll|rrrrrrrrrr|r}
+\toprule
+ &  & \multicolumn{3}{c}{roc\_auc (\uparrow)} & \multicolumn{5}{c}{rmse (\downarrow)} & \multicolumn{2}{c}{log\_loss (\downarrow)} & \multicolumn{1}{|c}{\textbf{ELO} ($\uparrow$)} \\
+\cmidrule(lr){3-5} \cmidrule(lr){6-10} \cmidrule(lr){11-12}
+\textbf{Method} & \textbf{Type} & \textbf{Fitness} & \textbf{Blood} & \textbf{Diabetes} & \textbf{Fiat500} & \textbf{QSAR-Fish} & \textbf{Airfoil} & \textbf{Concrete} & \textbf{Insurance} & \textbf{Maternal} & \textbf{Phishing} & \textbf{ELO} \\
+\textit{task\_id} &  & \textit{363671} & \textit{363621} & \textit{363629} & \textit{363615} & \textit{363698} & \textit{363612} & \textit{363625} & \textit{363675} & \textit{363685} & \textit{363707} &  \\
+\midrule
+\midrule
+CAT & ML & 0.8034 & 0.7051 & 0.8376 & 707.2178 & 0.9171 & 1.1913 & 4.3336 & 4075.9578 & 0.4194 & 0.2097 & 1407 \\
+EBM & ML & 0.7998 & 0.7207 & \textbf{0.8536} & 720.7889 & 0.9339 & 1.8751 & 4.3792 & 4036.8570 & 0.5009 & 0.2399 & 1288 \\
+GBM & ML & 0.8022 & 0.7158 & 0.8353 & 709.2952 & 0.9226 & 1.3876 & 4.3673 & 4122.5018 & 0.4264 & 0.2317 & 1318 \\
+KNN & ML & 0.7735 & 0.6988 & 0.8143 & 748.8333 & 0.9472 & 2.5530 & 6.2608 & 4630.2356 & 0.7841 & 0.3690 & 804 \\
+LR & ML & 0.8008 & \textbf{0.7489} & 0.8262 & 728.5160 & 0.9771 & 4.7522 & 7.9501 & 5585.8824 & 0.7722 & 0.3363 & 977 \\
+RF & ML & 0.8006 & 0.6749 & 0.8239 & 702.9432 & 0.9201 & 1.7727 & 5.5037 & 4289.1162 & 0.4400 & 0.2557 & 1129 \\
+XGB & ML & 0.8040 & 0.7040 & 0.8229 & 704.7691 & 0.9136 & 1.3029 & 4.2713 & 4137.5101 & 0.4070 & 0.2310 & 1324 \\
+XT & ML & 0.8082 & 0.6811 & 0.8404 & 698.0186 & 0.9055 & 1.7070 & 5.2122 & 4131.0870 & 0.4147 & 0.2377 & 1335 \\
+FASTAI & DL & 0.8029 & 0.7438 & 0.8416 & 723.5121 & 0.9462 & 1.5303 & 5.2047 & 4165.8780 & 0.6314 & 0.2430 & 1210 \\
+MNCA\_GPU & DL & 0.7962 & 0.6901 & 0.8276 & 709.5030 & 0.9425 & 1.4021 & 5.7500 & 4147.3357 & 0.3958 & 0.2285 & 1186 \\
+NN\_TORCH & DL & 0.7973 & 0.7418 & 0.8333 & 728.5594 & 0.9401 & 1.2491 & 4.3504 & 4149.1978 & 0.5344 & 0.2288 & 1222 \\
+REALMLP\_GPU & DL & 0.8019 & 0.7248 & 0.8390 & 702.3571 & 0.9278 & 1.0575 & 4.1444 & 4053.7824 & 0.3944 & 0.2110 & 1497 \\
+TABM\_GPU & DL & 0.8055 & 0.7151 & 0.8227 & 721.9544 & 0.9155 & 0.9851 & 4.3892 & 4119.4994 & 0.4710 & 0.2212 & 1340 \\
+XRFM\_GPU & DL & 0.8018 & 0.7229 & 0.8427 & 702.9979 & 0.9052 & 1.1778 & 4.4011 & 4164.4716 & 0.3959 & 0.2471 & 1383 \\
+REALTABPFN-V2.5 & Foundation & \textbf{0.8098} & 0.7272 & 0.8419 & 697.4177 & \textbf{0.8974} & \textbf{0.9048} & \textbf{3.7570} & 4101.0519 & 0.3837 & \textbf{0.2087} & \textbf{1730} \\
+TABDPT\_GPU & Foundation & 0.8076 & 0.7281 & 0.8427 & \textbf{687.4641} & 0.8997 & 0.9868 & 4.0483 & 4098.7226 & \textbf{0.3466} & 0.2126 & 1703 \\
+TABPFNV2\_GPU & Foundation & 0.8088 & 0.7240 & 0.8397 & 691.3058 & 0.9093 & 0.9659 & 4.0664 & 4258.5480 & 0.4200 & 0.2139 & 1548 \\
+\midrule
+FTTransformer & DL & 0.8030 & 0.7185 & 0.8209 & 888.8334 & 1.0440 & 2.8392 & 6.2435 & 4393.4196 & 0.5520 & 0.2240 & 1021 \\
+LLMBaseline & LLM & nan & 0.7107 & 0.7922 & nan & 1.3773 & nan & 7.7201 & 5885.2990 & 0.8115 & 0.2403 & 905 \\
+LLMBaseline260429-LB-Bidir & LLM & nan & 0.6816 & 0.8009 & nan & 1.0406 & 2.4642 & 7.3227 & 4291.8113 & nan & 0.2881 & 947 \\
+LLMBaselineBidirectional260426-BaselineBidir & LLM & nan & 0.6734 & 0.7978 & nan & 1.0088 & 1.5984 & 4.7988 & 4355.6975 & nan & nan & 984 \\
+LLMSlot260506-LS-qwen-bidir & LLM & 0.8050 & 0.7287 & 0.8373 & 708.2014 & 0.9254 & 1.0538 & nan & 4130.3380 & 0.5481 & 0.2316 & 1326 \\
+LLMSlot260506-LS-qwen-causal & LLM & 0.8021 & 0.7008 & 0.8315 & 714.4536 & 0.9393 & 1.0913 & 4.7762 & 4065.1286 & 0.5283 & 0.2212 & 1256 \\
+LLMSlot260506-LS-qwen-structured & LLM & 0.8007 & 0.7073 & 0.8341 & 712.5798 & 0.9353 & 1.0784 & 4.8204 & \textbf{4035.0168} & 0.5223 & 0.2236 & 1296 \\
+LLMSlot260508-LS-qwen-bidir-num\_emb-pwl & LLM & 0.8035 & 0.6897 & 0.8301 & 727.3725 & 0.9326 & 1.1085 & 4.2610 & 4070.3315 & 0.4432 & nan & 1241 \\
+LLMSlot260508-LS-qwen-causal-num\_emb-pwl & LLM & 0.8046 & 0.7070 & 0.8234 & 714.4687 & 0.9108 & 1.0739 & 4.1577 & 4061.3945 & 0.4787 & nan & 1304 \\
+LLMSlot260508-LS-qwen-structured-num\_emb-pwl & LLM & nan & 0.6954 & nan & nan & nan & 1.0687 & nan & nan & nan & nan & 1074 \\
+LLMSlotBoost260510-LSB-qwen-causal-eos4 & LLM & 0.8030 & 0.7061 & nan & 1885.3188 & 1.4798 & 6.9194 & nan & 11232.7985 & 0.5323 & nan & 935 \\
+LLMSlotBoost260510-LSB-qwen-causal-trainable4 & LLM & 0.8029 & 0.7103 & nan & nan & 1.4813 & 6.9005 & nan & 11248.8024 & 0.4914 & nan & 990 \\
+LLMSlotBoost260510-LSB-qwen-causal-trainable8 & LLM & 0.8029 & 0.7102 & nan & nan & nan & 6.9271 & nan & nan & 0.5217 & nan & 1040 \\
+\bottomrule
+\end{tabular}
+}
+\caption{Results (tuned)}
+\label{tab:results_tuned}
+\end{table}

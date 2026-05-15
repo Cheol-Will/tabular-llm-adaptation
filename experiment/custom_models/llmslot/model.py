@@ -41,6 +41,36 @@ def _build_structured_mask(
 
     return mask.unsqueeze(0).unsqueeze(0)  # (1, 1, N, N)
 
+def _build_structured_v2_mask(
+    seq_length: int,
+    feat_indices: torch.Tensor,
+    column_ids_lengths: list[int],
+) -> torch.Tensor:
+    """
+    Like _build_structured_mask, but target segment tokens attend only to
+    feat slot tokens (feat_indices), not to column name tokens.
+    Shape: (1, 1, N, N)
+    """
+    num_feature_cols = len(column_ids_lengths) - 1
+    mask = torch.full((seq_length, seq_length), float("-inf"))
+
+    prev, cur = 0, 0
+    for i, length in enumerate(column_ids_lengths):
+        if i < num_feature_cols:
+            cur += length + 1
+            size = cur - prev
+            mask[prev:cur, prev:cur] = torch.full((size, size), float("-inf")).triu(diagonal=1)
+            prev = cur
+        else:
+            # target segment: attend only to feat_indices (block to all others stays -inf)
+            mask[-length:, feat_indices] = 0.0
+            mask[-length:, -length:] = torch.full((length, length), float("-inf")).triu(diagonal=1)
+
+    # feat slot tokens attend to each other freely
+    mask[feat_indices[:, None], feat_indices[None, :]] = 0.0
+
+    return mask.unsqueeze(0).unsqueeze(0)
+
 class LLMSlot(nn.Module):
 
     def __init__(
@@ -52,20 +82,23 @@ class LLMSlot(nn.Module):
         token_dim: int = 16,
         num_classes: int = 1,
         mlp_ratio: float = 1.0,
-        attn_type: str = 'causal', # 'causal' | 'bidir' | 'structured'
+        attn_type: str = 'causal', # 'causal' | 'bidir' | 'structured' | 'structured_v2'
         prediction_method: str = 'next_token_pred',
         bins: list[torch.Tensor] = None,
     ):
         super().__init__()
-        assert attn_type in ('causal', 'bidir', 'structured')
+        assert attn_type in ('causal', 'bidir', 'structured', 'structured_v2')
         assert prediction_method in ('next_token_pred', 'token_pooling')
 
         self.attn_type = attn_type
         self.prediction_method = prediction_method
         self.num_features = num_num_features + len(cardinalities)
 
+        local_model_path = f"./pretrained_llm/{model_name}"
         self.backbone = AutoModelForCausalLM.from_pretrained(
-            model_name, torch_dtype=torch.bfloat16,
+            local_model_path,
+            # model_name, 
+            dtype=torch.bfloat16,
             token=os.getenv("HUGGING_FACE_TOKEN"),
         )
         self.llm_dim = self.backbone.config.hidden_size
@@ -123,9 +156,13 @@ class LLMSlot(nn.Module):
             attn_mask = _build_structured_mask(
                 total_len, self.feat_indices, column_ids_lengths
             ).to(device)
+        elif self.attn_type == 'structured_v2':
+            attn_mask = _build_structured_v2_mask(
+                total_len, self.feat_indices, column_ids_lengths
+            ).to(device)
 
         self.register_buffer('attn_mask', attn_mask)
-        print(f"Total Sequence Length: {total_len}")
+        # print(f"Total Sequence Length: {total_len}")
 
 
     def _build_inputs(self, x: torch.Tensor) -> torch.Tensor:

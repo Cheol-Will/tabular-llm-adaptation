@@ -21,20 +21,21 @@
 # task_id=363625
 # exp_name="260320-num_emb"
 # task_id=363612
-task_id=363621
-# exp_name="260429-bidir"
-exp_name="260429-causal-slot"
-# model="LLMAdapter"
+model_name="Qwen/Qwen2.5-0.5B"
+
+task_id=363612
 model="LLMSlot"
-# model="LLMBaseline"
+# attn_type="causal"
+# attn_type="bidir"
+# attn_type="structured"
+attn_type="structured_v2"
+exp_name="260506-LS-qwen-$attn_type"
 analysis_type="attn-map"
-# exp_name="260401-2-engineering"
-# model="LLMAdapterEngineered"
-# model="LLMAdapterReg"
 
 python experiment/analysis.py \
     --model $model \
+    --model_name $model_name  \
     --exp_name $exp_name \
+    --attn_type $attn_type \
     --task_id $task_id \
     --analysis_type $analysis_type \
-    # --use_bidir_attn

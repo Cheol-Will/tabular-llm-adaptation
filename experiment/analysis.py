@@ -9,7 +9,6 @@ from utils import get_parser
 
 
 def main():
-    """Main entry point - routes to appropriate analysis function."""
     parser = get_parser()
     parser.add_argument(
         "--analysis_type",
@@ -56,7 +55,6 @@ def main():
         analyze_attn_map(
             args=args,
             model=args.model,
-            exp_name=args.exp_name,
             task_id=args.task_id,
             output_dir=output_dir,
         )

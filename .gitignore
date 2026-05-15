@@ -1,5 +1,6 @@
 # user defined 
 # bencheval
+pretrained_llm/
 *.pt
 tabflow
 tabflow_slurm
@@ -7,7 +8,7 @@ tst
 AutogluonModels
 wandb
 */*/*/embedding/
-
+experiment/evals/*/analysis/*/*/*.pkl
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

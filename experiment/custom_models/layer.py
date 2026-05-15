@@ -190,3 +190,56 @@ class OutputProj(nn.Module):
         if self.num_classes == 1:
             x = x.squeeze(-1)
         return x
+    
+class MultiOutputProj(nn.Module):
+    def __init__(self, hidden_dim, num_classes, mlp_ratio = 1.0, n = 1):
+        super().__init__()
+        self.num_classes = num_classes
+        self.norm = nn.LayerNorm(hidden_dim)
+        self.n_lin1 = NLinear(n, hidden_dim, int(hidden_dim*mlp_ratio))
+        self.relu = nn.ReLU()
+        self.n_lin2 = NLinear(n, int(hidden_dim*mlp_ratio), num_classes)
+    
+    def forward(self, x):
+        assert x.ndim == 3
+        x = self.norm(x)
+        x = self.n_lin1(x)
+        x = self.relu(x)
+        x = self.n_lin2(x) # (B,N,C)
+        x = x.mean(dim=1)
+
+        return x
+    
+def init_rsqrt_uniform_(x: torch.Tensor, d: int) -> torch.Tensor:
+    assert d > 0
+    d_rsqrt = d**-0.5
+    return nn.init.uniform_(x, -d_rsqrt, d_rsqrt)
+
+class NLinear(nn.Module):
+    """N linear layers applied in parallel to N disjoint parts of the input.
+    """
+
+    def __init__(
+        self, n: int, in_features: int, out_features: int, bias: bool = True
+    ) -> None:
+        super().__init__()
+        self.weight = nn.Parameter(torch.empty(n, in_features, out_features))
+        self.bias = nn.Parameter(torch.empty(n, out_features)) if bias else None
+        self.reset_parameters()
+
+    def reset_parameters(self):
+        d = self.weight.shape[-2]
+        init_rsqrt_uniform_(self.weight, d)
+        if self.bias is not None:
+            init_rsqrt_uniform_(self.bias, d)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        assert x.ndim == 3
+        assert x.shape[-(self.weight.ndim - 1) :] == self.weight.shape[:-1]
+
+        x = x.transpose(0, 1)
+        x = x @ self.weight
+        x = x.transpose(0, 1)
+        if self.bias is not None:
+            x = x + self.bias
+        return x
